@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3F6521DE2F0FCC4B00B9EFFB /* SHDesignSystemKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3F6521DD2F0FCC4B00B9EFFB /* SHDesignSystemKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		3F5C36D42F0FBFA600DA9E32 /* SHDesignSystem.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SHDesignSystem.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3F6521DE2F0FCC4B00B9EFFB /* SHDesignSystemKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +38,7 @@
 			isa = PBXGroup;
 			children = (
 				3F5C36D62F0FBFA600DA9E32 /* SHDesignSystem */,
+				3FB3491F2F0FCA3E000DF25D /* Frameworks */,
 				3F5C36D52F0FBFA600DA9E32 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +49,13 @@
 				3F5C36D42F0FBFA600DA9E32 /* SHDesignSystem.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3FB3491F2F0FCA3E000DF25D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +78,7 @@
 			);
 			name = SHDesignSystem;
 			packageProductDependencies = (
+				3F6521DD2F0FCC4B00B9EFFB /* SHDesignSystemKit */,
 			);
 			productName = SHDesignSystem;
 			productReference = 3F5C36D42F0FBFA600DA9E32 /* SHDesignSystem.app */;
@@ -94,6 +108,9 @@
 			);
 			mainGroup = 3F5C36CB2F0FBFA600DA9E32;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				3F6521DC2F0FCC4B00B9EFFB /* XCLocalSwiftPackageReference "../SHDesignSystem" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3F5C36D52F0FBFA600DA9E32 /* Products */;
 			projectDirPath = "";
@@ -328,6 +345,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		3F6521DC2F0FCC4B00B9EFFB /* XCLocalSwiftPackageReference "../SHDesignSystem" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../SHDesignSystem;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3F6521DD2F0FCC4B00B9EFFB /* SHDesignSystemKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SHDesignSystemKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3F5C36CC2F0FBFA600DA9E32 /* Project object */;
 }
