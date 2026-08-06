@@ -1,51 +1,73 @@
 import SwiftUI
 
-// MARK: - Theme Definition
-public enum SHTheme: String, CaseIterable, Sendable {
-    case pastelPink
-    case pastelMint
-    case pastelLavender
-    case pastelPeach
-    case pastelSky
-    case pastelLemon
+// MARK: - Theme
+/// 앱 하나의 시각 언어 전체.
+///
+/// SH의 설계 전제는 **시그니처는 고정, 색조만 앱마다 다름**이다.
+/// 그래서 새 앱을 시작할 때 필요한 건 hue 하나뿐이고,
+/// 나머지(타이포·모양·깊이·모션)는 기본값이 시그니처를 그대로 들고 온다.
+///
+/// ```swift
+/// // 프리셋으로 시작
+/// ContentView().shTheme(.lavender)
+///
+/// // 새 앱 색조
+/// ContentView().shTheme(SHTheme(hue: 312))
+/// ```
+public struct SHTheme: Sendable {
+    public let colors: SHColorScheme
+    public let typography: SHTypographyScheme
+    public let shape: SHShapeScheme
+    public let elevation: SHElevationScheme
+    public let motion: SHMotionScheme
 
-    public var displayName: String {
-        switch self {
-        case .pastelPink: return "파스텔 핑크"
-        case .pastelMint: return "파스텔 민트"
-        case .pastelLavender: return "파스텔 라벤더"
-        case .pastelPeach: return "파스텔 피치"
-        case .pastelSky: return "파스텔 스카이"
-        case .pastelLemon: return "파스텔 레몬"
-        }
+    public init(
+        colors: SHColorScheme,
+        typography: SHTypographyScheme = .signature,
+        shape: SHShapeScheme = .signature,
+        elevation: SHElevationScheme? = nil,
+        motion: SHMotionScheme = .signature
+    ) {
+        self.colors = colors
+        self.typography = typography
+        self.shape = shape
+        // 그림자 색은 브랜드 hue를 머금어야 해서 팔레트에서 끌어온다.
+        self.elevation = elevation ?? .signature(shadow: colors.shadow)
+        self.motion = motion
     }
 
-    public var primaryColor: Color {
-        switch self {
-        case .pastelPink: return SH.colors.pink
-        case .pastelMint: return SH.colors.mint
-        case .pastelLavender: return SH.colors.lavender
-        case .pastelPeach: return SH.colors.peach
-        case .pastelSky: return SH.colors.sky
-        case .pastelLemon: return SH.colors.lemon
-        }
-    }
-
-    public var accentColor: Color {
-        switch self {
-        case .pastelPink: return SH.colors.lavender
-        case .pastelMint: return SH.colors.pink
-        case .pastelLavender: return SH.colors.mint
-        case .pastelPeach: return SH.colors.sky
-        case .pastelSky: return SH.colors.peach
-        case .pastelLemon: return SH.colors.mint
-        }
+    /// 색조 하나로 테마를 만든다. 앱을 새로 만들 때 쓰는 기본 진입점.
+    /// - Parameter hue: 0~360.
+    public init(hue: Double, secondaryHueShift: Double = 55) {
+        self.init(colors: .pastel(hue: hue, secondaryHueShift: secondaryHueShift))
     }
 }
 
-// MARK: - Theme Environment Key
+// MARK: - Presets
+
+public extension SHTheme {
+    static let lavender = SHTheme(hue: 268)
+    static let pink     = SHTheme(hue: 340)
+    static let mint     = SHTheme(hue: 166)
+    static let peach    = SHTheme(hue: 22)
+    static let sky      = SHTheme(hue: 205)
+    static let lemon    = SHTheme(hue: 48)
+
+    /// 카탈로그·스냅샷 테스트에서 전체를 순회할 때 쓴다.
+    static let presets: [(name: String, theme: SHTheme)] = [
+        ("Lavender", .lavender),
+        ("Pink", .pink),
+        ("Mint", .mint),
+        ("Peach", .peach),
+        ("Sky", .sky),
+        ("Lemon", .lemon)
+    ]
+}
+
+// MARK: - Environment
+
 private struct SHThemeKey: EnvironmentKey {
-    static let defaultValue: SHTheme = .pastelLavender
+    static let defaultValue: SHTheme = .lavender
 }
 
 public extension EnvironmentValues {
@@ -55,32 +77,14 @@ public extension EnvironmentValues {
     }
 }
 
-// MARK: - Theme Modifier
 public extension View {
+    /// 테마를 하위 트리에 주입한다. 앱 루트에서 한 번 호출하면 된다.
     func shTheme(_ theme: SHTheme) -> some View {
-        self.environment(\.shTheme, theme)
+        environment(\.shTheme, theme)
     }
-}
 
-// MARK: - Theme Configuration (for custom themes)
-public struct SHThemeConfiguration: Sendable {
-    public let primary: Color
-    public let secondary: Color
-    public let accent: Color
-    public let background: Color
-    public let surface: Color
-
-    public init(
-        primary: Color,
-        secondary: Color,
-        accent: Color,
-        background: Color,
-        surface: Color
-    ) {
-        self.primary = primary
-        self.secondary = secondary
-        self.accent = accent
-        self.background = background
-        self.surface = surface
+    /// 색조만 바꿔 주입하는 축약형.
+    func shTheme(hue: Double) -> some View {
+        environment(\.shTheme, SHTheme(hue: hue))
     }
 }

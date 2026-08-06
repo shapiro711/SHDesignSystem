@@ -1,315 +1,260 @@
 import SwiftUI
 
-// MARK: - Chip Style
-public enum SHChipStyle: String, CaseIterable, Sendable {
-    case filled
+// MARK: - Chip Variant
+
+public enum SHChipVariant: String, Sendable, CaseIterable {
+    case tinted     // 파스텔 컨테이너
     case outlined
     case glass
+    case status     // 상태색
 
-    public var displayName: String {
-        switch self {
-        case .filled: return "Filled"
-        case .outlined: return "Outlined"
-        case .glass: return "Glass"
-        }
-    }
+    public var displayName: String { rawValue.capitalized }
 }
 
-// MARK: - Chip Size
-public enum SHChipSize: String, CaseIterable, Sendable {
-    case small
-    case medium
-    case large
+public enum SHChipSize: String, Sendable, CaseIterable {
+    case small, medium
 
     var height: CGFloat {
         switch self {
         case .small: return 28
-        case .medium: return 36
-        case .large: return 44
+        case .medium: return 34
         }
     }
 
     var horizontalPadding: CGFloat {
         switch self {
-        case .small: return SH.spacing.sm
-        case .medium: return SH.spacing.md
-        case .large: return SH.spacing.lg
-        }
-    }
-
-    var font: Font {
-        switch self {
-        case .small: return SH.typography.labelSmall
-        case .medium: return SH.typography.labelMedium
-        case .large: return SH.typography.labelLarge
+        case .small: return SH.spacing.xs
+        case .medium: return SH.spacing.sm
         }
     }
 
     var iconSize: CGFloat {
         switch self {
-        case .small: return 12
-        case .medium: return 14
-        case .large: return 16
+        case .small: return SH.size.iconXS
+        case .medium: return SH.size.iconSM
+        }
+    }
+
+    var font: KeyPath<SHTypographyScheme, SHFontToken> {
+        switch self {
+        case .small: return \.labelSmall
+        case .medium: return \.labelMedium
         }
     }
 }
 
 // MARK: - SHChip
+
 public struct SHChip: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let icon: String?
-    private let style: SHChipStyle
+    private let variant: SHChipVariant
     private let size: SHChipSize
+    private let status: SHStatusKind
     private let isSelected: Bool
-    private let isDismissible: Bool
     private let action: (() -> Void)?
-    private let onDismiss: (() -> Void)?
+    private let onRemove: (() -> Void)?
 
     public init(
         _ title: String,
         icon: String? = nil,
-        style: SHChipStyle = .filled,
+        variant: SHChipVariant = .tinted,
         size: SHChipSize = .medium,
+        status: SHStatusKind = .info,
         isSelected: Bool = false,
-        isDismissible: Bool = false,
-        action: (() -> Void)? = nil,
-        onDismiss: (() -> Void)? = nil
+        onRemove: (() -> Void)? = nil,
+        // trailing closure가 `action`에 붙도록 마지막에 둔다.
+        action: (() -> Void)? = nil
     ) {
         self.title = title
         self.icon = icon
-        self.style = style
+        self.variant = variant
         self.size = size
+        self.status = status
         self.isSelected = isSelected
-        self.isDismissible = isDismissible
         self.action = action
-        self.onDismiss = onDismiss
+        self.onRemove = onRemove
     }
 
     public var body: some View {
-        Group {
-            if let action = action {
-                Button(action: action) {
-                    content
-                }
-                .buttonStyle(.plain)
-            } else {
-                content
-            }
+        if let action {
+            Button(action: action) { content }
+                .buttonStyle(.shPressable(haptic: nil))
+                .accessibilityLabel(Text(title))
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        } else {
+            content
         }
     }
 
     private var content: some View {
-        HStack(spacing: SH.spacing.xs) {
-            if let icon = icon {
+        HStack(spacing: SH.spacing.xxs) {
+            if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: size.iconSize, weight: .medium))
+                    .font(.system(size: size.iconSize, weight: .semibold))
+                    .accessibilityHidden(true)
             }
 
-            Text(title)
-                .font(size.font)
+            SHText(title, size.font, role: .custom(foreground))
 
-            if isDismissible {
-                Button {
-                    onDismiss?()
-                } label: {
+            if let onRemove {
+                Button(action: onRemove) {
                     Image(systemName: "xmark")
-                        .font(.system(size: size.iconSize - 2, weight: .medium))
+                        .font(.system(size: size.iconSize - 3, weight: .bold))
                 }
+                .buttonStyle(.shPressable(haptic: nil))
+                .accessibilityLabel(Text("\(title) 삭제"))
             }
         }
-        .foregroundStyle(foregroundColor)
+        .foregroundStyle(foreground)
         .padding(.horizontal, size.horizontalPadding)
         .frame(height: size.height)
-        .background(backgroundView)
-        .clipShape(Capsule())
-        .overlay(overlayView)
+        .background(background)
+        .clipShape(theme.shape.chip.shape)
+        .overlay(border)
+        .animation(theme.motion.quick, value: isSelected)
     }
 
-    private var foregroundColor: Color {
-        switch style {
-        case .filled:
-            return isSelected ? SH.colors.textOnColor : SH.colors.textPrimary
+    // MARK: Appearance
+
+    private var foreground: Color {
+        switch variant {
+        case .tinted:
+            return isSelected ? theme.colors.onPrimary : theme.colors.onPrimaryContainer
         case .outlined:
-            return isSelected ? theme.primaryColor : SH.colors.textPrimary
+            return isSelected ? theme.colors.onPrimary : theme.colors.textSecondary
         case .glass:
-            return SH.colors.textPrimary
+            return theme.colors.textPrimary
+        case .status:
+            return theme.colors.onContainer(for: status)
         }
     }
 
     @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .filled:
-            isSelected ? theme.primaryColor : theme.primaryColor.opacity(0.15)
+    private var background: some View {
+        switch variant {
+        case .tinted:
+            isSelected ? theme.colors.primary : theme.colors.primaryContainer
         case .outlined:
-            isSelected ? theme.primaryColor.opacity(0.1) : Color.clear
+            isSelected ? theme.colors.primary : Color.clear
         case .glass:
-            Capsule().fill(.ultraThinMaterial)
+            theme.shape.chip.shape.fill(.ultraThinMaterial)
+        case .status:
+            theme.colors.container(for: status)
         }
     }
 
     @ViewBuilder
-    private var overlayView: some View {
-        switch style {
-        case .filled:
+    private var border: some View {
+        switch variant {
+        case .outlined:
+            theme.shape.chip.shape.stroke(
+                isSelected ? Color.clear : theme.colors.border,
+                lineWidth: SH.size.border
+            )
+        case .glass:
+            theme.shape.chip.shape.stroke(theme.colors.glassBorder, lineWidth: SH.size.border)
+        case .tinted, .status:
             EmptyView()
-        case .outlined:
-            Capsule()
-                .stroke(isSelected ? theme.primaryColor : SH.colors.border, lineWidth: 1)
-        case .glass:
-            Capsule()
-                .stroke(SH.colors.glassBorder, lineWidth: 1)
         }
     }
 }
 
-// MARK: - Chip Group
-public struct SHChipGroup: View {
-    private let chips: [String]
-    @Binding private var selectedChips: Set<String>
-    private let style: SHChipStyle
+// MARK: - SHChipGroup
+
+/// 선택 가능한 칩 묶음. 필터 UI의 기본 단위.
+public struct SHChipGroup<Item: Hashable>: View {
+    @Binding private var selection: Set<Item>
+
+    private let items: [Item]
+    private let title: (Item) -> String
+    private let icon: (Item) -> String?
+    private let variant: SHChipVariant
     private let size: SHChipSize
     private let allowsMultipleSelection: Bool
 
     public init(
-        chips: [String],
-        selectedChips: Binding<Set<String>>,
-        style: SHChipStyle = .filled,
+        _ items: [Item],
+        selection: Binding<Set<Item>>,
+        variant: SHChipVariant = .tinted,
         size: SHChipSize = .medium,
-        allowsMultipleSelection: Bool = true
+        allowsMultipleSelection: Bool = true,
+        icon: @escaping (Item) -> String? = { _ in nil },
+        title: @escaping (Item) -> String
     ) {
-        self.chips = chips
-        self._selectedChips = selectedChips
-        self.style = style
+        self.items = items
+        self._selection = selection
+        self.variant = variant
         self.size = size
         self.allowsMultipleSelection = allowsMultipleSelection
+        self.icon = icon
+        self.title = title
     }
 
     public var body: some View {
-        FlowLayout(spacing: SH.spacing.xs) {
-            ForEach(chips, id: \.self) { chip in
+        // iOS 16+ 네이티브 흐름 레이아웃. 직접 구현한 wrap 로직보다
+        // Dynamic Type 확대 시 훨씬 안정적이다.
+        SHFlowLayout(spacing: SH.spacing.xs, lineSpacing: SH.spacing.xs) {
+            ForEach(items, id: \.self) { item in
                 SHChip(
-                    chip,
-                    style: style,
+                    title(item),
+                    icon: icon(item),
+                    variant: variant,
                     size: size,
-                    isSelected: selectedChips.contains(chip)
+                    isSelected: selection.contains(item)
                 ) {
-                    if allowsMultipleSelection {
-                        if selectedChips.contains(chip) {
-                            selectedChips.remove(chip)
-                        } else {
-                            selectedChips.insert(chip)
-                        }
-                    } else {
-                        selectedChips = [chip]
-                    }
+                    toggle(item)
                 }
             }
+        }
+    }
+
+    private func toggle(_ item: Item) {
+        if allowsMultipleSelection {
+            if selection.contains(item) { selection.remove(item) } else { selection.insert(item) }
+        } else {
+            selection = selection.contains(item) ? [] : [item]
         }
     }
 }
 
-// MARK: - Flow Layout
-public struct FlowLayout: Layout {
-    var spacing: CGFloat
-
-    public init(spacing: CGFloat = SH.spacing.xs) {
-        self.spacing = spacing
-    }
-
-    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = FlowResult(
-            in: proposal.replacingUnspecifiedDimensions().width,
-            subviews: subviews,
-            spacing: spacing
+public extension SHChipGroup where Item == String {
+    init(
+        _ items: [String],
+        selection: Binding<Set<String>>,
+        variant: SHChipVariant = .tinted,
+        size: SHChipSize = .medium,
+        allowsMultipleSelection: Bool = true
+    ) {
+        self.init(
+            items,
+            selection: selection,
+            variant: variant,
+            size: size,
+            allowsMultipleSelection: allowsMultipleSelection,
+            icon: { _ in nil },
+            title: { $0 }
         )
-        return result.size
-    }
-
-    public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = FlowResult(
-            in: bounds.width,
-            subviews: subviews,
-            spacing: spacing
-        )
-
-        for (index, subview) in subviews.enumerated() {
-            subview.place(
-                at: CGPoint(
-                    x: bounds.minX + result.positions[index].x,
-                    y: bounds.minY + result.positions[index].y
-                ),
-                proposal: ProposedViewSize(result.sizes[index])
-            )
-        }
-    }
-
-    struct FlowResult {
-        var sizes: [CGSize] = []
-        var positions: [CGPoint] = []
-        var size: CGSize = .zero
-
-        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
-            var currentX: CGFloat = 0
-            var currentY: CGFloat = 0
-            var lineHeight: CGFloat = 0
-            var maxX: CGFloat = 0
-
-            for subview in subviews {
-                let size = subview.sizeThatFits(.unspecified)
-                sizes.append(size)
-
-                if currentX + size.width > maxWidth, currentX > 0 {
-                    currentX = 0
-                    currentY += lineHeight + spacing
-                    lineHeight = 0
-                }
-
-                positions.append(CGPoint(x: currentX, y: currentY))
-                lineHeight = max(lineHeight, size.height)
-                currentX += size.width + spacing
-                maxX = max(maxX, currentX)
-            }
-
-            size = CGSize(width: maxX - spacing, height: currentY + lineHeight)
-        }
     }
 }
 
 // MARK: - Preview
-#Preview("SHChip Styles") {
-    VStack(spacing: 24) {
-        ForEach(SHChipStyle.allCases, id: \.self) { style in
-            VStack(alignment: .leading, spacing: 8) {
-                Text(style.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                HStack {
-                    SHChip("기본", style: style)
-                    SHChip("선택됨", style: style, isSelected: true)
-                    SHChip("아이콘", icon: "star.fill", style: style)
-                }
+
+#Preview("Chips") {
+    VStack(alignment: .leading, spacing: SH.spacing.lg) {
+        ForEach(SHChipVariant.allCases, id: \.self) { variant in
+            HStack {
+                SHChip(variant.displayName, icon: "tag.fill", variant: variant)
+                SHChip("선택됨", variant: variant, isSelected: true, action: {})
+                SHChip("삭제", variant: variant, onRemove: {})
             }
         }
+
+        SHChipGroup(["전체", "진행중", "완료", "보관됨", "즐겨찾기"], selection: .constant(["진행중"]))
     }
     .padding()
-    .shTheme(.pastelLavender)
-}
-
-#Preview("SHChipGroup") {
-    struct PreviewWrapper: View {
-        @State private var selected: Set<String> = ["Swift"]
-
-        var body: some View {
-            SHChipGroup(
-                chips: ["Swift", "SwiftUI", "UIKit", "Combine", "Core Data"],
-                selectedChips: $selected
-            )
-            .padding()
-            .shTheme(.pastelMint)
-        }
-    }
-    return PreviewWrapper()
+    .background(SHThemeBackground())
+    .shTheme(.sky)
 }

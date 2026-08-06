@@ -1,114 +1,77 @@
 import SwiftUI
+import UIKit
 
-// MARK: - Shadow Modifiers
-public extension View {
-    func shShadow(
-        color: Color = .black.opacity(0.1),
-        radius: CGFloat = 16,
-        x: CGFloat = 0,
-        y: CGFloat = 4
-    ) -> some View {
-        self.shadow(color: color, radius: radius, x: x, y: y)
-    }
+// MARK: - Border
 
-    func shSoftShadow() -> some View {
-        self.shadow(color: .black.opacity(0.08), radius: 20, x: 0, y: 8)
-    }
-
-    func shElevation(_ level: Int) -> some View {
-        let radius = CGFloat(level * 4)
-        let opacity = 0.05 + (Double(level) * 0.02)
-        return self.shadow(color: .black.opacity(opacity), radius: radius, x: 0, y: CGFloat(level))
-    }
-}
-
-// MARK: - Border Modifiers
-public extension View {
-    func shBorder(
-        color: Color = SH.colors.border,
-        width: CGFloat = 1,
-        cornerRadius: CGFloat = SH.radius.xl
-    ) -> some View {
-        self.overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(color, lineWidth: width)
-        )
-    }
-
-    func shAccentBorder(cornerRadius: CGFloat = SH.radius.xl) -> some View {
-        self.modifier(AccentBorderModifier(cornerRadius: cornerRadius))
-    }
-}
-
-struct AccentBorderModifier: ViewModifier {
+struct SHBorderModifier: ViewModifier {
     @Environment(\.shTheme) private var theme
-    let cornerRadius: CGFloat
+
+    let shape: SHCornerStyle
+    let color: Color?
+    let width: CGFloat
 
     func body(content: Content) -> some View {
         content.overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(theme.primaryColor, lineWidth: 2)
+            shape.shape.stroke(color ?? theme.colors.border, lineWidth: width)
         )
     }
 }
 
-// MARK: - Animation Modifiers
 public extension View {
-    func shSpringAnimation() -> some View {
-        self.animation(.spring(response: 0.3, dampingFraction: 0.7), value: UUID())
-    }
-
-    func shBounceAnimation() -> some View {
-        self.animation(.interpolatingSpring(stiffness: 200, damping: 15), value: UUID())
+    func shBorder(
+        _ shape: SHCornerStyle,
+        color: Color? = nil,
+        width: CGFloat = SH.size.border
+    ) -> some View {
+        modifier(SHBorderModifier(shape: shape, color: color, width: width))
     }
 }
 
-// MARK: - Conditional Modifiers
+// MARK: - Layout Helpers
+
 public extension View {
-    @ViewBuilder
-    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
-        if condition {
-            transform(self)
-        } else {
-            self
-        }
+    func shFullWidth(alignment: Alignment = .center) -> some View {
+        frame(maxWidth: .infinity, alignment: alignment)
     }
 
-    @ViewBuilder
-    func ifLet<Value, Content: View>(_ value: Value?, transform: (Self, Value) -> Content) -> some View {
-        if let value = value {
-            transform(self, value)
-        } else {
-            self
-        }
+    func shSquare(_ size: CGFloat) -> some View {
+        frame(width: size, height: size)
+    }
+
+    /// HIG 최소 터치 영역을 보장한다. 아이콘 버튼처럼 시각 크기가
+    /// 작은 요소에 반드시 붙인다.
+    func shMinTapTarget() -> some View {
+        frame(minWidth: SH.size.minTapTarget, minHeight: SH.size.minTapTarget)
+            .contentShape(Rectangle())
     }
 }
 
-// MARK: - Accessibility Modifiers
+// MARK: - Accessibility
+
 public extension View {
     func shAccessible(label: String, hint: String? = nil) -> some View {
-        self
-            .accessibilityLabel(label)
-            .accessibilityHint(hint ?? "")
-    }
-
-    func shTappable(label: String, action: @escaping () -> Void) -> some View {
-        self
-            .accessibilityLabel(label)
-            .accessibilityAddTraits(.isButton)
-            .onTapGesture(perform: action)
+        accessibilityLabel(Text(label))
+            .accessibilityHint(hint.map(Text.init) ?? Text(""))
     }
 }
 
-// MARK: - Hide Keyboard
-public extension View {
-    func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
+// MARK: - Keyboard
 
-    func dismissKeyboardOnTap() -> some View {
-        self.onTapGesture {
-            hideKeyboard()
-        }
+public extension View {
+    /// 빈 곳을 탭하면 키보드를 내린다.
+    func shDismissKeyboardOnTap() -> some View {
+        onTapGesture { SHKeyboard.dismiss() }
+    }
+}
+
+public enum SHKeyboard {
+    @MainActor
+    public static func dismiss() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 }

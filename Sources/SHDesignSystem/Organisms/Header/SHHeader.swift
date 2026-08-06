@@ -1,197 +1,162 @@
 import SwiftUI
 
 // MARK: - Header Style
-public enum SHHeaderStyle: String, CaseIterable, Sendable {
+
+public enum SHHeaderStyle: String, Sendable, CaseIterable {
     case standard
     case large
     case glass
 
-    public var displayName: String {
-        switch self {
-        case .standard: return "Standard"
-        case .large: return "Large"
-        case .glass: return "Glass"
-        }
-    }
+    public var displayName: String { rawValue.capitalized }
 }
 
 // MARK: - SHHeader
-public struct SHHeader<LeadingAction: View, TrailingAction: View>: View {
+
+public struct SHHeader<Leading: View, Trailing: View>: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let subtitle: String?
     private let style: SHHeaderStyle
-    private let leadingAction: LeadingAction?
-    private let trailingAction: TrailingAction?
+    private let leading: Leading
+    private let trailing: Trailing
 
     public init(
         _ title: String,
         subtitle: String? = nil,
         style: SHHeaderStyle = .standard,
-        @ViewBuilder leadingAction: () -> LeadingAction = { EmptyView() },
-        @ViewBuilder trailingAction: () -> TrailingAction = { EmptyView() }
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
         self.style = style
-        self.leadingAction = leadingAction()
-        self.trailingAction = trailingAction()
+        self.leading = leading()
+        self.trailing = trailing()
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        Group {
             switch style {
-            case .standard:
-                standardHeader
-            case .large:
-                largeHeader
-            case .glass:
-                glassHeader
+            case .standard, .glass: inlineHeader
+            case .large: largeHeader
             }
         }
+        .background(background)
     }
 
-    private var standardHeader: some View {
-        HStack(spacing: SH.spacing.md) {
-            if let leadingAction = leadingAction, !(leadingAction is EmptyView) {
-                leadingAction
-            }
+    private var inlineHeader: some View {
+        HStack(spacing: SH.spacing.sm) {
+            leading
 
             VStack(alignment: .leading, spacing: SH.spacing.xxxs) {
-                Text(title)
-                    .font(SH.typography.titleLarge)
-                    .foregroundStyle(SH.colors.textPrimary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(SH.typography.bodySmall)
-                        .foregroundStyle(SH.colors.textSecondary)
+                SHText(title, \.titleLarge, lineLimit: 1)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    SHText(subtitle, \.bodySmall, role: .secondary, lineLimit: 1)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: SH.spacing.xs)
 
-            if let trailingAction = trailingAction, !(trailingAction is EmptyView) {
-                trailingAction
-            }
+            trailing
         }
         .padding(.horizontal, SH.spacing.md)
-        .padding(.vertical, SH.spacing.sm)
-        .background(SH.colors.background)
+        .padding(.vertical, SH.spacing.xs)
+        .frame(minHeight: SH.size.minTapTarget + SH.spacing.xs)
     }
 
     private var largeHeader: some View {
         VStack(alignment: .leading, spacing: SH.spacing.sm) {
             HStack {
-                if let leadingAction = leadingAction, !(leadingAction is EmptyView) {
-                    leadingAction
-                }
-
+                leading
                 Spacer()
-
-                if let trailingAction = trailingAction, !(trailingAction is EmptyView) {
-                    trailingAction
-                }
+                trailing
             }
 
             VStack(alignment: .leading, spacing: SH.spacing.xxs) {
-                Text(title)
-                    .font(SH.typography.displaySmall)
-                    .foregroundStyle(SH.colors.textPrimary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(SH.typography.bodyMedium)
-                        .foregroundStyle(SH.colors.textSecondary)
+                SHText(title, \.displaySmall)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    SHText(subtitle, \.bodyMedium, role: .secondary)
                 }
             }
         }
         .padding(.horizontal, SH.spacing.md)
         .padding(.vertical, SH.spacing.md)
-        .background(SH.colors.background)
     }
 
-    private var glassHeader: some View {
-        HStack(spacing: SH.spacing.md) {
-            if let leadingAction = leadingAction, !(leadingAction is EmptyView) {
-                leadingAction
-            }
-
-            VStack(alignment: .leading, spacing: SH.spacing.xxxs) {
-                Text(title)
-                    .font(SH.typography.titleLarge)
-                    .foregroundStyle(SH.colors.textPrimary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(SH.typography.bodySmall)
-                        .foregroundStyle(SH.colors.textSecondary)
-                }
-            }
-
-            Spacer()
-
-            if let trailingAction = trailingAction, !(trailingAction is EmptyView) {
-                trailingAction
-            }
+    @ViewBuilder
+    private var background: some View {
+        switch style {
+        case .standard, .large: theme.colors.background
+        case .glass: Rectangle().fill(.ultraThinMaterial)
         }
-        .padding(.horizontal, SH.spacing.md)
-        .padding(.vertical, SH.spacing.sm)
-        .background(.ultraThinMaterial)
     }
 }
 
-// MARK: - Simple Init
-public extension SHHeader where LeadingAction == EmptyView, TrailingAction == EmptyView {
+// MARK: - Convenience Inits
+
+public extension SHHeader where Leading == EmptyView, Trailing == EmptyView {
+    init(_ title: String, subtitle: String? = nil, style: SHHeaderStyle = .standard) {
+        self.init(title, subtitle: subtitle, style: style,
+                  leading: { EmptyView() }, trailing: { EmptyView() })
+    }
+}
+
+public extension SHHeader where Leading == EmptyView {
     init(
         _ title: String,
         subtitle: String? = nil,
-        style: SHHeaderStyle = .standard
+        style: SHHeaderStyle = .standard,
+        @ViewBuilder trailing: () -> Trailing
     ) {
-        self.title = title
-        self.subtitle = subtitle
-        self.style = style
-        self.leadingAction = nil
-        self.trailingAction = nil
+        self.init(title, subtitle: subtitle, style: style,
+                  leading: { EmptyView() }, trailing: trailing)
     }
 }
 
-// MARK: - Navigation Header
+// MARK: - SHNavigationHeader
+
 public struct SHNavigationHeader: View {
-    @Environment(\.shTheme) private var theme
     @Environment(\.dismiss) private var dismiss
 
     private let title: String
     private let style: SHHeaderStyle
-    private let showBackButton: Bool
+    private let showsBackButton: Bool
     private let trailingIcon: String?
+    private let trailingLabel: String?
     private let onTrailingTap: (() -> Void)?
 
     public init(
         _ title: String,
         style: SHHeaderStyle = .standard,
-        showBackButton: Bool = true,
+        showsBackButton: Bool = true,
         trailingIcon: String? = nil,
+        trailingLabel: String? = nil,
         onTrailingTap: (() -> Void)? = nil
     ) {
         self.title = title
         self.style = style
-        self.showBackButton = showBackButton
+        self.showsBackButton = showsBackButton
         self.trailingIcon = trailingIcon
+        self.trailingLabel = trailingLabel
         self.onTrailingTap = onTrailingTap
     }
 
     public var body: some View {
         SHHeader(title, style: style) {
-            if showBackButton {
-                SHIconButton(icon: "chevron.left", style: .ghost, size: .medium) {
+            if showsBackButton {
+                SHIconButton(icon: "chevron.left", accessibilityLabel: "뒤로") {
                     dismiss()
                 }
             }
-        } trailingAction: {
-            if let icon = trailingIcon {
-                SHIconButton(icon: icon, style: .ghost, size: .medium) {
+        } trailing: {
+            if let trailingIcon {
+                SHIconButton(
+                    icon: trailingIcon,
+                    accessibilityLabel: trailingLabel ?? "추가 동작"
+                ) {
                     onTrailingTap?()
                 }
             }
@@ -199,7 +164,8 @@ public struct SHNavigationHeader: View {
     }
 }
 
-// MARK: - Section Header
+// MARK: - SHSectionHeader
+
 public struct SHSectionHeader: View {
     @Environment(\.shTheme) private var theme
 
@@ -207,11 +173,7 @@ public struct SHSectionHeader: View {
     private let actionTitle: String?
     private let action: (() -> Void)?
 
-    public init(
-        _ title: String,
-        actionTitle: String? = nil,
-        action: (() -> Void)? = nil
-    ) {
+    public init(_ title: String, actionTitle: String? = nil, action: (() -> Void)? = nil) {
         self.title = title
         self.actionTitle = actionTitle
         self.action = action
@@ -219,52 +181,33 @@ public struct SHSectionHeader: View {
 
     public var body: some View {
         HStack {
-            Text(title)
-                .font(SH.typography.titleSmall)
-                .foregroundStyle(SH.colors.textPrimary)
+            SHText(title, \.titleSmall)
+                .accessibilityAddTraits(.isHeader)
 
             Spacer()
 
-            if let actionTitle = actionTitle, let action = action {
+            if let actionTitle, let action {
                 Button(action: action) {
-                    Text(actionTitle)
-                        .font(SH.typography.labelMedium)
-                        .foregroundStyle(theme.primaryColor)
+                    SHText(actionTitle, \.labelMedium, role: .brand)
                 }
+                .buttonStyle(.shPressable(haptic: nil))
             }
         }
         .padding(.horizontal, SH.spacing.md)
-        .padding(.vertical, SH.spacing.sm)
+        .padding(.vertical, SH.spacing.xs)
     }
 }
 
 // MARK: - Preview
-#Preview("SHHeader Styles") {
-    VStack(spacing: 0) {
-        ForEach(SHHeaderStyle.allCases, id: \.self) { style in
-            SHHeader("헤더 타이틀", subtitle: style.displayName, style: style) {
-                SHIconButton(icon: "chevron.left", style: .ghost) {}
-            } trailingAction: {
-                SHIconButton(icon: "ellipsis", style: .ghost) {}
-            }
-            Divider()
-        }
-    }
-    .shTheme(.pastelLavender)
-}
 
-#Preview("SHNavigationHeader") {
+#Preview("Headers") {
     VStack(spacing: 0) {
-        SHNavigationHeader("설정", trailingIcon: "gear")
+        SHNavigationHeader("설정", trailingIcon: "ellipsis", trailingLabel: "더 보기")
+        SHDivider()
+        SHHeader("오늘의 기록", subtitle: "3개의 항목", style: .large)
+        SHSectionHeader("최근", actionTitle: "모두 보기") {}
         Spacer()
     }
-    .shTheme(.pastelPink)
-}
-
-#Preview("SHSectionHeader") {
-    VStack(spacing: 16) {
-        SHSectionHeader("최근 항목", actionTitle: "모두 보기") {}
-        SHSectionHeader("추천")
-    }
-    .shTheme(.pastelMint)
+    .background(SHThemeBackground())
+    .shTheme(.mint)
 }

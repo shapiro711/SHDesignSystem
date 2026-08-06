@@ -1,58 +1,19 @@
 import SwiftUI
 
-// MARK: - Icon Size
-public enum SHIconSize: CGFloat, CaseIterable, Sendable {
-    case xs = 12
-    case sm = 16
-    case md = 20
-    case lg = 24
-    case xl = 32
-    case xxl = 48
-
-    public var displayName: String {
-        switch self {
-        case .xs: return "XS (12)"
-        case .sm: return "SM (16)"
-        case .md: return "MD (20)"
-        case .lg: return "LG (24)"
-        case .xl: return "XL (32)"
-        case .xxl: return "XXL (48)"
-        }
-    }
-}
-
-// MARK: - Icon Weight
-public enum SHIconWeight: Sendable {
-    case light
-    case regular
-    case medium
-    case semibold
-    case bold
-
-    var fontWeight: Font.Weight {
-        switch self {
-        case .light: return .light
-        case .regular: return .regular
-        case .medium: return .medium
-        case .semibold: return .semibold
-        case .bold: return .bold
-        }
-    }
-}
-
 // MARK: - SHIcon
+
 public struct SHIcon: View {
     @Environment(\.shTheme) private var theme
 
     private let name: String
     private let size: SHIconSize
-    private let weight: SHIconWeight
+    private let weight: Font.Weight
     private let color: Color?
 
     public init(
         _ name: String,
         size: SHIconSize = .md,
-        weight: SHIconWeight = .regular,
+        weight: Font.Weight = .regular,
         color: Color? = nil
     ) {
         self.name = name
@@ -63,128 +24,88 @@ public struct SHIcon: View {
 
     public var body: some View {
         Image(systemName: name)
-            .font(.system(size: size.rawValue, weight: weight.fontWeight))
-            .foregroundStyle(color ?? SH.colors.textPrimary)
+            .font(.system(size: size.value, weight: weight))
+            .foregroundStyle(color ?? theme.colors.textPrimary)
+            // 아이콘은 기본적으로 장식이다. 의미가 있으면 호출부에서
+            // accessibilityLabel을 붙여 되살린다.
+            .accessibilityHidden(true)
     }
 }
 
-// MARK: - Themed Icon
-public struct SHThemedIcon: View {
-    @Environment(\.shTheme) private var theme
+// MARK: - SHCircledIcon
 
-    private let name: String
-    private let size: SHIconSize
-    private let weight: SHIconWeight
-    private let useAccent: Bool
-
-    public init(
-        _ name: String,
-        size: SHIconSize = .md,
-        weight: SHIconWeight = .regular,
-        useAccent: Bool = false
-    ) {
-        self.name = name
-        self.size = size
-        self.weight = weight
-        self.useAccent = useAccent
-    }
-
-    public var body: some View {
-        Image(systemName: name)
-            .font(.system(size: size.rawValue, weight: weight.fontWeight))
-            .foregroundStyle(useAccent ? theme.accentColor : theme.primaryColor)
-    }
-}
-
-// MARK: - Circled Icon
+/// 원형 배경을 두른 아이콘. 리스트 리딩, 액션 카드 등에 쓴다.
 public struct SHCircledIcon: View {
     @Environment(\.shTheme) private var theme
 
     private let name: String
     private let size: SHIconSize
-    private let style: Style
+    private let role: Role
 
-    public enum Style {
-        case filled
+    public enum Role: Sendable, CaseIterable {
+        case brand      // 브랜드 채움색
+        case tinted     // 파스텔 컨테이너 — 시그니처 룩
         case outlined
         case glass
+        case neutral
     }
 
-    public init(
-        _ name: String,
-        size: SHIconSize = .md,
-        style: Style = .filled
-    ) {
+    public init(_ name: String, size: SHIconSize = .md, role: Role = .tinted) {
         self.name = name
         self.size = size
-        self.style = style
+        self.role = role
     }
 
-    private var containerSize: CGFloat {
-        size.rawValue * 2
-    }
+    private var containerSize: CGFloat { size.value * 2 }
 
     public var body: some View {
         ZStack {
-            backgroundView
+            background
             Image(systemName: name)
-                .font(.system(size: size.rawValue, weight: .medium))
-                .foregroundStyle(foregroundColor)
+                .font(.system(size: size.value, weight: .semibold))
+                .foregroundStyle(foreground)
         }
         .frame(width: containerSize, height: containerSize)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .filled:
-            Circle()
-                .fill(theme.primaryColor)
+    private var background: some View {
+        switch role {
+        case .brand:
+            Circle().fill(theme.colors.primary)
+        case .tinted:
+            Circle().fill(theme.colors.primaryContainer)
         case .outlined:
-            Circle()
-                .stroke(theme.primaryColor, lineWidth: 1.5)
+            Circle().stroke(theme.colors.primaryText, lineWidth: SH.size.borderEmphasis)
         case .glass:
-            Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Circle()
-                        .stroke(SH.colors.glassBorder, lineWidth: 1)
-                )
+            Circle().fill(.ultraThinMaterial)
+                .overlay(Circle().stroke(theme.colors.glassBorder, lineWidth: SH.size.border))
+        case .neutral:
+            Circle().fill(theme.colors.surfaceSunken)
         }
     }
 
-    private var foregroundColor: Color {
-        switch style {
-        case .filled:
-            return SH.colors.textOnColor
-        case .outlined:
-            return theme.primaryColor
-        case .glass:
-            return SH.colors.textPrimary
+    private var foreground: Color {
+        switch role {
+        case .brand:    return theme.colors.onPrimary
+        case .tinted:   return theme.colors.onPrimaryContainer
+        case .outlined: return theme.colors.primaryText
+        case .glass:    return theme.colors.textPrimary
+        case .neutral:  return theme.colors.textSecondary
         }
     }
 }
 
 // MARK: - Preview
-#Preview("SHIcon Sizes") {
-    HStack(spacing: 20) {
-        ForEach(SHIconSize.allCases, id: \.self) { size in
-            VStack {
-                SHIcon("star.fill", size: size)
-                Text(size.displayName)
-                    .font(.caption2)
-            }
+
+#Preview("Circled Icon Roles") {
+    HStack(spacing: SH.spacing.md) {
+        ForEach(Array(SHCircledIcon.Role.allCases.enumerated()), id: \.offset) { _, role in
+            SHCircledIcon("star.fill", size: .lg, role: role)
         }
     }
     .padding()
-}
-
-#Preview("SHCircledIcon") {
-    HStack(spacing: 20) {
-        SHCircledIcon("star.fill", style: .filled)
-        SHCircledIcon("star.fill", style: .outlined)
-        SHCircledIcon("star.fill", style: .glass)
-    }
-    .padding()
-    .shTheme(.pastelPink)
+    .background(SHThemeBackground())
+    .shTheme(.peach)
 }

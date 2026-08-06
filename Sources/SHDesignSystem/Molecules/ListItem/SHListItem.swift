@@ -1,233 +1,198 @@
 import SwiftUI
 
-// MARK: - ListItem Style
-public enum SHListItemStyle: String, CaseIterable, Sendable {
-    case standard
-    case card
-    case glass
-
-    public var displayName: String {
-        switch self {
-        case .standard: return "Standard"
-        case .card: return "Card"
-        case .glass: return "Glass"
-        }
-    }
-}
-
 // MARK: - SHListItem
+/// 리스트 한 줄. leading/trailing은 제네릭이라 `EmptyView` 여부가
+/// 컴파일 타임에 결정된다. 런타임 타입 검사(`is EmptyView`)를 하지 않으므로
+/// 뷰 아이덴티티가 깨지지 않는다.
 public struct SHListItem<Leading: View, Trailing: View>: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let subtitle: String?
-    private let style: SHListItemStyle
-    private let leading: Leading?
-    private let trailing: Trailing?
+    private let surface: SHSurfaceRole
+    private let leading: Leading
+    private let trailing: Trailing
     private let action: (() -> Void)?
 
     public init(
         _ title: String,
         subtitle: String? = nil,
-        style: SHListItemStyle = .standard,
-        @ViewBuilder leading: () -> Leading = { EmptyView() },
-        @ViewBuilder trailing: () -> Trailing = { EmptyView() },
-        action: (() -> Void)? = nil
+        surface: SHSurfaceRole = .plain,
+        action: (() -> Void)? = nil,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
-        self.style = style
+        self.surface = surface
+        self.action = action
         self.leading = leading()
         self.trailing = trailing()
-        self.action = action
     }
 
     public var body: some View {
-        Group {
-            if let action = action {
-                Button(action: action) {
-                    content
-                }
-                .buttonStyle(.plain)
-            } else {
-                content
-            }
+        if let action {
+            Button(action: action) { row }
+                .buttonStyle(.shPressable(haptic: nil))
+                .accessibilityElement(children: .combine)
+        } else {
+            row
         }
     }
 
-    private var content: some View {
+    private var row: some View {
         HStack(spacing: SH.spacing.md) {
-            if let leading = leading, !(leading is EmptyView) {
-                leading
-            }
+            leading
 
             VStack(alignment: .leading, spacing: SH.spacing.xxs) {
-                Text(title)
-                    .font(SH.typography.bodyLarge)
-                    .foregroundStyle(SH.colors.textPrimary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(SH.typography.bodySmall)
-                        .foregroundStyle(SH.colors.textSecondary)
+                SHText(title, \.bodyLarge)
+                if let subtitle {
+                    SHText(subtitle, \.bodySmall, role: .secondary)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: SH.spacing.xs)
 
-            if let trailing = trailing, !(trailing is EmptyView) {
-                trailing
-            }
+            trailing
         }
-        .padding(SH.spacing.md)
-        .background(backgroundView)
-        .clipShape(RoundedRectangle(cornerRadius: style == .standard ? 0 : SH.radius.xl, style: .continuous))
-        .overlay(overlayView)
-    }
-
-    @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .standard:
-            Color.clear
-        case .card:
-            SH.colors.surface
-        case .glass:
-            RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
-    }
-
-    @ViewBuilder
-    private var overlayView: some View {
-        switch style {
-        case .standard:
-            EmptyView()
-        case .card:
-            RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-                .stroke(SH.colors.border, lineWidth: 1)
-        case .glass:
-            RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-                .stroke(SH.colors.glassBorder, lineWidth: 1)
-        }
+        .padding(.horizontal, SH.spacing.md)
+        .padding(.vertical, SH.spacing.sm)
+        .frame(minHeight: SH.size.minTapTarget)
+        .shSurface(surface, shape: surface == .plain ? .rounded(0) : theme.shape.container)
     }
 }
 
-// MARK: - Simple Init (no generics)
+// MARK: - Convenience Inits
+
 public extension SHListItem where Leading == EmptyView, Trailing == EmptyView {
     init(
         _ title: String,
         subtitle: String? = nil,
-        style: SHListItemStyle = .standard,
+        surface: SHSurfaceRole = .plain,
         action: (() -> Void)? = nil
     ) {
-        self.title = title
-        self.subtitle = subtitle
-        self.style = style
-        self.leading = nil
-        self.trailing = nil
-        self.action = action
+        self.init(title, subtitle: subtitle, surface: surface, action: action,
+                  leading: { EmptyView() }, trailing: { EmptyView() })
     }
 }
 
-// MARK: - Navigation ListItem
-public struct SHNavigationListItem: View {
+public extension SHListItem where Trailing == EmptyView {
+    init(
+        _ title: String,
+        subtitle: String? = nil,
+        surface: SHSurfaceRole = .plain,
+        action: (() -> Void)? = nil,
+        @ViewBuilder leading: () -> Leading
+    ) {
+        self.init(title, subtitle: subtitle, surface: surface, action: action,
+                  leading: leading, trailing: { EmptyView() })
+    }
+}
+
+// MARK: - Navigation Row
+
+public struct SHNavigationRow: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let subtitle: String?
     private let icon: String?
-    private let style: SHListItemStyle
+    private let value: String?
+    private let surface: SHSurfaceRole
     private let action: () -> Void
 
     public init(
         _ title: String,
         subtitle: String? = nil,
         icon: String? = nil,
-        style: SHListItemStyle = .standard,
+        value: String? = nil,
+        surface: SHSurfaceRole = .plain,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
-        self.style = style
+        self.value = value
+        self.surface = surface
         self.action = action
     }
 
     public var body: some View {
-        SHListItem(title, subtitle: subtitle, style: style) {
-            if let icon = icon {
-                SHCircledIcon(icon, size: .md, style: .filled)
+        SHListItem(title, subtitle: subtitle, surface: surface, action: action) {
+            if let icon {
+                SHCircledIcon(icon, size: .md, role: .tinted)
             }
         } trailing: {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(SH.colors.textTertiary)
-        } action: {
-            action()
+            HStack(spacing: SH.spacing.xs) {
+                if let value {
+                    SHText(value, \.bodyMedium, role: .secondary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: SH.size.iconSM, weight: .semibold))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }
 
-// MARK: - Toggle ListItem
-public struct SHToggleListItem: View {
+// MARK: - Toggle Row
+
+public struct SHToggleRow: View {
     @Environment(\.shTheme) private var theme
 
     @Binding private var isOn: Bool
+
     private let title: String
     private let subtitle: String?
     private let icon: String?
-    private let style: SHListItemStyle
+    private let surface: SHSurfaceRole
 
     public init(
         _ title: String,
         subtitle: String? = nil,
         icon: String? = nil,
         isOn: Binding<Bool>,
-        style: SHListItemStyle = .standard
+        surface: SHSurfaceRole = .plain
     ) {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
         self._isOn = isOn
-        self.style = style
+        self.surface = surface
     }
 
     public var body: some View {
-        SHListItem(title, subtitle: subtitle, style: style) {
-            if let icon = icon {
-                SHCircledIcon(icon, size: .md, style: .filled)
+        SHListItem(title, subtitle: subtitle, surface: surface) {
+            if let icon {
+                SHCircledIcon(icon, size: .md, role: .tinted)
             }
         } trailing: {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(theme.primaryColor)
+                .tint(theme.colors.primary)
+                .onChange(of: isOn) { _, _ in SHHaptics.selection() }
         }
+        // Toggle 자신이 스위치 트레잇을 갖고, 제목은 라벨로 합쳐진다.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(title))
     }
 }
 
 // MARK: - Preview
-#Preview("SHListItem Styles") {
-    VStack(spacing: 16) {
-        ForEach(SHListItemStyle.allCases, id: \.self) { style in
-            SHListItem("리스트 아이템", subtitle: style.displayName, style: style) {
-                SHCircledIcon("star.fill", size: .md, style: .filled)
-            } trailing: {
-                Text("값")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-    .padding()
-    .shTheme(.pastelLavender)
-}
 
-#Preview("Navigation & Toggle") {
-    VStack(spacing: 12) {
-        SHNavigationListItem("프로필 설정", subtitle: "이름, 사진 변경", icon: "person.fill") {}
-        SHNavigationListItem("알림 설정", icon: "bell.fill") {}
-        SHToggleListItem("다크 모드", icon: "moon.fill", isOn: .constant(true))
+#Preview("Rows") {
+    ScrollView {
+        VStack(spacing: SH.spacing.sm) {
+            SHNavigationRow("프로필 설정", subtitle: "이름, 사진 변경", icon: "person.fill") {}
+            SHNavigationRow("알림", icon: "bell.fill", value: "켜짐") {}
+            SHToggleRow("다크 모드", icon: "moon.fill", isOn: .constant(true))
+            SHDivider(inset: SH.spacing.md)
+            SHNavigationRow("카드형", icon: "square.stack.fill", surface: .elevated) {}
+            SHNavigationRow("틴트형", icon: "sparkles", surface: .tinted) {}
+        }
+        .padding(.vertical)
     }
-    .padding()
-    .shTheme(.pastelPink)
+    .background(SHThemeBackground())
+    .shTheme(.lavender)
 }

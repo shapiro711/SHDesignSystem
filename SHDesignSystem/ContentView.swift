@@ -1,161 +1,216 @@
-//
-//  ContentView.swift
-//  SHDesignSystem
-//
-//  Created by Kim Do hyung on 1/8/26.
-//
-
 import SwiftUI
 import SHDesignSystemKit
 
 struct ContentView: View {
-    @State private var selectedTheme: SHTheme = .pastelLavender
+    @State private var hue: Double = 268
+    @State private var presetName: String? = "Lavender"
+
+    private var theme: SHTheme { SHTheme(hue: hue) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: SH.spacing.lg) {
-                    // Theme Selector
-                    themeSelector
-
-                    // Catalog Sections
-                    catalogSections
+                    ThemeStudio(hue: $hue, presetName: $presetName)
+                    sections
                 }
-                .padding()
+                .padding(SH.spacing.md)
             }
-            .background(SH.colors.background)
+            .background(SHThemeBackground())
             .navigationTitle("SH Design System")
-            .shTheme(selectedTheme)
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .shTheme(theme)
+        .tint(theme.colors.primaryText)
+    }
+
+    private var sections: some View {
+        VStack(spacing: SH.spacing.sm) {
+            SHSectionHeader("Foundation")
+            link("컬러", "paintpalette.fill") { ColorsCatalog() }
+            link("타이포그래피", "textformat") { TypographyCatalog() }
+            link("간격 · 모양 · 깊이", "square.on.square") { LayoutCatalog() }
+
+            SHSectionHeader("Controls")
+            link("버튼", "hand.tap.fill") { ButtonCatalog() }
+            link("입력", "character.cursor.ibeam") { InputCatalog() }
+            link("선택", "checklist") { SelectionCatalog() }
+
+            SHSectionHeader("Display")
+            link("카드 · 리스트", "rectangle.stack.fill") { DisplayCatalog() }
+            link("칩 · 배지 · 아바타", "tag.fill") { AccentCatalog() }
+
+            SHSectionHeader("Feedback & States")
+            link("토스트 · 다이얼로그 · 시트", "bell.badge.fill") { FeedbackCatalog() }
+            link("로딩 · 빈 화면 · 에러", "hourglass") { StateCatalog() }
+
+            SHSectionHeader("Navigation")
+            link("헤더 · 탭바", "square.grid.2x2.fill") { NavigationCatalog() }
         }
     }
 
-    private var themeSelector: some View {
-        SHCard(style: .glass) {
-            VStack(alignment: .leading, spacing: SH.spacing.sm) {
-                Text("Theme")
-                    .font(SH.typography.labelMedium)
-                    .foregroundStyle(SH.colors.textSecondary)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: SH.spacing.sm) {
-                        ForEach(SHTheme.allCases, id: \.self) { theme in
-                            themeButton(theme)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func themeButton(_ theme: SHTheme) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3)) {
-                selectedTheme = theme
-            }
+    private func link<Destination: View>(
+        _ title: String,
+        _ icon: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+                .background(SHThemeBackground())
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
         } label: {
-            VStack(spacing: SH.spacing.xs) {
-                Circle()
-                    .fill(theme.primaryColor)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Circle()
-                            .stroke(selectedTheme == theme ? SH.colors.textPrimary : .clear, lineWidth: 2)
-                    )
-
-                Text(theme.displayName)
-                    .font(SH.typography.captionSmall)
-                    .foregroundStyle(SH.colors.textSecondary)
+            SHCard(surface: .elevated, padding: SH.spacing.sm) {
+                HStack(spacing: SH.spacing.md) {
+                    SHCircledIcon(icon, size: .md, role: .tinted)
+                    SHText(title, \.bodyLarge)
+                    Spacer()
+                    SHIcon("chevron.right", size: .sm)
+                }
             }
         }
         .buttonStyle(.plain)
     }
+}
 
-    private var catalogSections: some View {
-        VStack(spacing: SH.spacing.md) {
-            SHSectionHeader("Foundation")
+// MARK: - Theme Studio
 
-            NavigationLink(destination: ColorsCatalogView()) {
-                catalogItem("Colors", icon: "paintpalette.fill", description: "컬러 팔레트 & 시맨틱 컬러")
-            }
+/// 이 디자인 시스템의 핵심 주장을 그대로 보여주는 화면.
+/// 색조 슬라이더 하나를 움직이면 전체 팔레트가 다시 생성된다.
+struct ThemeStudio: View {
+    @Environment(\.shTheme) private var theme
 
-            NavigationLink(destination: TypographyCatalogView()) {
-                catalogItem("Typography", icon: "textformat", description: "폰트 스타일 & 텍스트")
-            }
+    @Binding var hue: Double
+    @Binding var presetName: String?
 
-            NavigationLink(destination: SpacingCatalogView()) {
-                catalogItem("Spacing & Radius", icon: "square.resize", description: "간격 & 둥근 모서리")
-            }
+    var body: some View {
+        SHCard(surface: .elevated) {
+            VStack(alignment: .leading, spacing: SH.spacing.md) {
+                HStack {
+                    SHText("테마", \.titleMedium)
+                    Spacer()
+                    SHText("hue \(Int(hue))°", \.labelMedium, role: .brand)
+                }
 
-            SHSectionHeader("Atoms")
+                swatchRow
 
-            NavigationLink(destination: ButtonCatalogView()) {
-                catalogItem("Buttons", icon: "rectangle.fill", description: "버튼 스타일 & 사이즈")
-            }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: SH.spacing.xs) {
+                        ForEach(SHTheme.presets, id: \.name) { preset in
+                            presetButton(preset.name)
+                        }
+                    }
+                    .padding(.horizontal, 1)
+                }
 
-            NavigationLink(destination: TextFieldCatalogView()) {
-                catalogItem("TextFields", icon: "character.cursor.ibeam", description: "입력 필드 & 텍스트 에어리어")
-            }
+                SHSlider(value: $hue, in: 0...359, step: 1, label: "색조") {
+                    "\(Int($0))°"
+                }
+                .onChange(of: hue) { _, _ in presetName = nil }
 
-            NavigationLink(destination: IconCatalogView()) {
-                catalogItem("Icons", icon: "star.fill", description: "아이콘 & 아이콘 버튼")
-            }
-
-            SHSectionHeader("Molecules")
-
-            NavigationLink(destination: InputFieldCatalogView()) {
-                catalogItem("Input Fields", icon: "rectangle.and.pencil.and.ellipsis", description: "라벨 + 입력 필드")
-            }
-
-            NavigationLink(destination: SearchBarCatalogView()) {
-                catalogItem("Search Bar", icon: "magnifyingglass", description: "검색 바 스타일")
-            }
-
-            NavigationLink(destination: ChipCatalogView()) {
-                catalogItem("Chips", icon: "tag.fill", description: "칩 & 칩 그룹")
-            }
-
-            NavigationLink(destination: ListItemCatalogView()) {
-                catalogItem("List Items", icon: "list.bullet", description: "리스트 아이템 & 네비게이션")
-            }
-
-            SHSectionHeader("Organisms")
-
-            NavigationLink(destination: CardCatalogView()) {
-                catalogItem("Cards", icon: "rectangle.portrait.fill", description: "카드 스타일 & 변형")
-            }
-
-            NavigationLink(destination: HeaderCatalogView()) {
-                catalogItem("Headers", icon: "rectangle.topthird.inset.filled", description: "헤더 & 섹션 헤더")
-            }
-
-            NavigationLink(destination: BottomSheetCatalogView()) {
-                catalogItem("Bottom Sheets", icon: "rectangle.bottomthird.inset.filled", description: "바텀 시트 & 액션 시트")
+                SHText(
+                    "색조 하나로 채움색·컨테이너·글자색이 다시 계산됩니다. 어떤 값에서도 WCAG AA 대비가 유지됩니다.",
+                    \.caption,
+                    role: .secondary
+                )
             }
         }
     }
 
-    private func catalogItem(_ title: String, icon: String, description: String) -> some View {
-        SHCard(style: .outlined) {
-            HStack(spacing: SH.spacing.md) {
-                SHCircledIcon(icon, size: .md, style: .filled)
-
-                VStack(alignment: .leading, spacing: SH.spacing.xxs) {
-                    Text(title)
-                        .font(SH.typography.titleSmall)
-                        .foregroundStyle(SH.colors.textPrimary)
-
-                    Text(description)
-                        .font(SH.typography.bodySmall)
-                        .foregroundStyle(SH.colors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(SH.colors.textTertiary)
-            }
+    private var swatchRow: some View {
+        HStack(spacing: SH.spacing.xs) {
+            swatch(theme.colors.primary, "Fill", on: theme.colors.onPrimary)
+            swatch(theme.colors.primaryContainer, "Container", on: theme.colors.onPrimaryContainer)
+            swatch(theme.colors.secondary, "Second", on: theme.colors.onSecondary)
+            swatch(theme.colors.surfaceSunken, "Sunken", on: theme.colors.textSecondary)
         }
+    }
+
+    private func swatch(_ color: Color, _ label: String, on foreground: Color) -> some View {
+        Text(label)
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .foregroundStyle(foreground)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(color)
+            .clipShape(RoundedRectangle(cornerRadius: SH.radius.md, style: .continuous))
+    }
+
+    private func presetButton(_ name: String) -> some View {
+        let preset = SHTheme.presets.first { $0.name == name }
+
+        return Button {
+            withAnimation(theme.motion.standard) {
+                hue = Self.presetHue(for: name) ?? hue
+                presetName = name
+            }
+        } label: {
+            HStack(spacing: SH.spacing.xxs) {
+                Circle()
+                    .fill(preset?.theme.colors.primary ?? .clear)
+                    .frame(width: 14, height: 14)
+                Text(name)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+            }
+            .padding(.horizontal, SH.spacing.sm)
+            .frame(height: 34)
+            .foregroundStyle(
+                presetName == name ? theme.colors.onPrimaryContainer : theme.colors.textSecondary
+            )
+            .background(presetName == name ? theme.colors.primaryContainer : theme.colors.surfaceSunken)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    static func presetHue(for name: String) -> Double? {
+        switch name {
+        case "Lavender": return 268
+        case "Pink": return 340
+        case "Mint": return 166
+        case "Peach": return 22
+        case "Sky": return 205
+        case "Lemon": return 48
+        default: return nil
+        }
+    }
+}
+
+// MARK: - Shared Catalog Chrome
+
+struct CatalogPage<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: SH.spacing.xl) {
+                content
+            }
+            .padding(SH.spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct CatalogGroup<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SH.spacing.sm) {
+            SHText(title, \.labelMedium, role: .secondary)
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

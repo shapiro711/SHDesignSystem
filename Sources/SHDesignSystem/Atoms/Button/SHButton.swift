@@ -1,195 +1,175 @@
 import SwiftUI
 
-// MARK: - Button Style
-public enum SHButtonStyle: String, CaseIterable, Sendable {
+// MARK: - Button Variant
+
+public enum SHButtonVariant: String, Sendable, CaseIterable {
+    /// 화면당 하나. 브랜드 채움색.
     case primary
+    /// 파스텔 컨테이너. 시그니처 룩이 가장 잘 드러나는 변형.
     case secondary
+    /// 테두리만.
     case outlined
+    /// 배경 없음.
     case ghost
+    /// 파괴적 동작.
     case destructive
+    /// 이미지·그라디언트 위.
     case glass
 
-    public var displayName: String {
-        switch self {
-        case .primary: return "Primary"
-        case .secondary: return "Secondary"
-        case .outlined: return "Outlined"
-        case .ghost: return "Ghost"
-        case .destructive: return "Destructive"
-        case .glass: return "Glass"
-        }
-    }
-}
-
-// MARK: - Button Size
-public enum SHButtonSize: String, CaseIterable, Sendable {
-    case small
-    case medium
-    case large
-
-    var height: CGFloat {
-        switch self {
-        case .small: return 36
-        case .medium: return 48
-        case .large: return 56
-        }
-    }
-
-    var horizontalPadding: CGFloat {
-        switch self {
-        case .small: return SH.spacing.sm
-        case .medium: return SH.spacing.lg
-        case .large: return SH.spacing.xl
-        }
-    }
-
-    var font: Font {
-        switch self {
-        case .small: return SH.typography.labelMedium
-        case .medium: return SH.typography.labelLarge
-        case .large: return SH.typography.titleSmall
-        }
-    }
-
-    var iconSize: CGFloat {
-        switch self {
-        case .small: return 16
-        case .medium: return 20
-        case .large: return 24
-        }
-    }
+    public var displayName: String { rawValue.capitalized }
 }
 
 // MARK: - SHButton
+
 public struct SHButton: View {
     @Environment(\.shTheme) private var theme
-    @Environment(\.isEnabled) private var isEnabled
 
     private let title: String
     private let icon: String?
-    private let style: SHButtonStyle
-    private let size: SHButtonSize
+    private let iconPlacement: IconPlacement
+    private let variant: SHButtonVariant
+    private let size: SHControlSize
     private let isLoading: Bool
-    private let isFullWidth: Bool
+    private let fillsWidth: Bool
     private let action: () -> Void
+
+    public enum IconPlacement: Sendable { case leading, trailing }
 
     public init(
         _ title: String,
         icon: String? = nil,
-        style: SHButtonStyle = .primary,
-        size: SHButtonSize = .medium,
+        iconPlacement: IconPlacement = .leading,
+        variant: SHButtonVariant = .primary,
+        size: SHControlSize = .medium,
         isLoading: Bool = false,
-        isFullWidth: Bool = false,
+        fillsWidth: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.icon = icon
-        self.style = style
+        self.iconPlacement = iconPlacement
+        self.variant = variant
         self.size = size
         self.isLoading = isLoading
-        self.isFullWidth = isFullWidth
+        self.fillsWidth = fillsWidth
         self.action = action
     }
 
     public var body: some View {
         Button(action: action) {
-            HStack(spacing: SH.spacing.xs) {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: foregroundColor))
-                        .scaleEffect(0.8)
-                } else {
-                    if let icon = icon {
-                        Image(systemName: icon)
-                            .font(.system(size: size.iconSize, weight: .medium))
-                    }
-                    Text(title)
-                        .font(size.font)
-                }
+            label
+        }
+        .buttonStyle(.shPressable)
+        // 로딩 중에도 `.disabled`를 쓴다. 접근성 트레잇이 함께 전달되어야
+        // VoiceOver 사용자가 "지금 누를 수 없음"을 알 수 있다.
+        .disabled(isLoading)
+        .shDisabledAppearance()
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(isLoading ? Text("로딩 중") : Text(""))
+    }
+
+    private var label: some View {
+        HStack(spacing: SH.spacing.xs) {
+            if isLoading {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(foreground)
+                    .scaleEffect(0.8)
+            } else {
+                if icon != nil, iconPlacement == .leading { iconView }
+                Text(title)
+                    .shFont(size.font)
+                    .lineLimit(1)
+                if icon != nil, iconPlacement == .trailing { iconView }
             }
-            .frame(maxWidth: isFullWidth ? .infinity : nil)
-            .frame(height: size.height)
-            .padding(.horizontal, size.horizontalPadding)
-            .foregroundStyle(foregroundColor)
-            .background(backgroundView)
-            .clipShape(RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous))
-            .overlay(overlayView)
         }
-        .buttonStyle(.plain)
-        .opacity(isEnabled ? 1.0 : 0.5)
-        .allowsHitTesting(!isLoading && isEnabled)
-    }
-
-    private var foregroundColor: Color {
-        switch style {
-        case .primary:
-            return SH.colors.textOnColor
-        case .secondary, .outlined:
-            return theme.primaryColor
-        case .ghost:
-            return theme.primaryColor
-        case .destructive:
-            return .white
-        case .glass:
-            return SH.colors.textPrimary
-        }
+        .frame(maxWidth: fillsWidth ? .infinity : nil)
+        .frame(height: size.height)
+        .padding(.horizontal, size.horizontalPadding)
+        .foregroundStyle(foreground)
+        .background(background)
+        .clipShape(theme.shape.button.shape)
+        .overlay(border)
+        .shShadow(shadow)
+        .contentShape(theme.shape.button.shape)
     }
 
     @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .primary:
-            theme.primaryColor
-        case .secondary:
-            theme.primaryColor.opacity(0.15)
-        case .outlined, .ghost:
-            Color.clear
-        case .destructive:
-            SH.colors.error
-        case .glass:
-            glassBackground
+    private var iconView: some View {
+        if let icon {
+            Image(systemName: icon)
+                .font(.system(size: size.iconSize, weight: .semibold))
+                .accessibilityHidden(true)
+        }
+    }
+
+    // MARK: Appearance
+
+    private var foreground: Color {
+        switch variant {
+        case .primary:     return theme.colors.onPrimary
+        case .secondary:   return theme.colors.onPrimaryContainer
+        case .outlined,
+             .ghost:       return theme.colors.primaryText
+        case .destructive: return theme.colors.onError
+        case .glass:       return theme.colors.textPrimary
         }
     }
 
     @ViewBuilder
-    private var glassBackground: some View {
-        RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-            .fill(.ultraThinMaterial)
+    private var background: some View {
+        switch variant {
+        case .primary:     theme.colors.primary
+        case .secondary:   theme.colors.primaryContainer
+        case .outlined,
+             .ghost:       Color.clear
+        case .destructive: theme.colors.error
+        case .glass:       theme.shape.button.shape.fill(.ultraThinMaterial)
+        }
     }
 
     @ViewBuilder
-    private var overlayView: some View {
-        switch style {
-        case .outlined, .ghost:
-            RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-                .stroke(theme.primaryColor, lineWidth: 1.5)
+    private var border: some View {
+        switch variant {
+        case .outlined:
+            theme.shape.button.shape
+                .stroke(theme.colors.primaryText, lineWidth: SH.size.borderEmphasis)
         case .glass:
-            RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous)
-                .stroke(SH.colors.glassBorder, lineWidth: 1)
+            theme.shape.button.shape
+                .stroke(theme.colors.glassBorder, lineWidth: SH.size.border)
         default:
             EmptyView()
         }
     }
+
+    private var shadow: SHShadowToken {
+        variant == .primary ? theme.elevation.raised : .none
+    }
 }
 
-// MARK: - Icon Only Button
+// MARK: - SHIconButton
+
 public struct SHIconButton: View {
     @Environment(\.shTheme) private var theme
-    @Environment(\.isEnabled) private var isEnabled
 
     private let icon: String
-    private let style: SHButtonStyle
-    private let size: SHButtonSize
+    private let accessibilityLabel: String
+    private let variant: SHButtonVariant
+    private let size: SHControlSize
     private let action: () -> Void
 
+    /// - Parameter accessibilityLabel: 아이콘만 있는 버튼은 VoiceOver가
+    ///   읽을 텍스트가 없다. 그래서 선택 항목이 아니라 **필수 인자**다.
     public init(
         icon: String,
-        style: SHButtonStyle = .ghost,
-        size: SHButtonSize = .medium,
+        accessibilityLabel: String,
+        variant: SHButtonVariant = .ghost,
+        size: SHControlSize = .medium,
         action: @escaping () -> Void
     ) {
         self.icon = icon
-        self.style = style
+        self.accessibilityLabel = accessibilityLabel
+        self.variant = variant
         self.size = size
         self.action = action
     }
@@ -197,74 +177,84 @@ public struct SHIconButton: View {
     public var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: size.iconSize, weight: .medium))
+                .font(.system(size: size.iconSize, weight: .semibold))
+                .foregroundStyle(foreground)
                 .frame(width: size.height, height: size.height)
-                .foregroundStyle(foregroundColor)
-                .background(backgroundView)
+                .background(background)
                 .clipShape(Circle())
-                .overlay(
-                    Group {
-                        if style == .outlined || style == .ghost {
-                            Circle()
-                                .stroke(theme.primaryColor, lineWidth: 1.5)
-                        } else if style == .glass {
-                            Circle()
-                                .stroke(SH.colors.glassBorder, lineWidth: 1)
-                        }
-                    }
-                )
+                .overlay(border)
+                .shMinTapTarget()
         }
-        .buttonStyle(.plain)
-        .opacity(isEnabled ? 1.0 : 0.5)
+        .buttonStyle(.shPressable)
+        .shDisabledAppearance()
+        .accessibilityLabel(Text(accessibilityLabel))
     }
 
-    private var foregroundColor: Color {
-        switch style {
-        case .primary:
-            return SH.colors.textOnColor
-        case .secondary, .outlined, .ghost:
-            return theme.primaryColor
-        case .destructive:
-            return .white
-        case .glass:
-            return SH.colors.textPrimary
+    private var foreground: Color {
+        switch variant {
+        case .primary:     return theme.colors.onPrimary
+        case .secondary:   return theme.colors.onPrimaryContainer
+        case .outlined,
+             .ghost:       return theme.colors.primaryText
+        case .destructive: return theme.colors.onError
+        case .glass:       return theme.colors.textPrimary
         }
     }
 
     @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .primary:
-            theme.primaryColor
-        case .secondary:
-            theme.primaryColor.opacity(0.15)
-        case .outlined, .ghost:
-            Color.clear
-        case .destructive:
-            SH.colors.error
+    private var background: some View {
+        switch variant {
+        case .primary:     theme.colors.primary
+        case .secondary:   theme.colors.primaryContainer
+        case .outlined,
+             .ghost:       Color.clear
+        case .destructive: theme.colors.error
+        case .glass:       Circle().fill(.ultraThinMaterial)
+        }
+    }
+
+    @ViewBuilder
+    private var border: some View {
+        switch variant {
+        case .outlined:
+            Circle().stroke(theme.colors.primaryText, lineWidth: SH.size.borderEmphasis)
         case .glass:
-            Circle().fill(.ultraThinMaterial)
+            Circle().stroke(theme.colors.glassBorder, lineWidth: SH.size.border)
+        default:
+            EmptyView()
         }
     }
 }
 
 // MARK: - Preview
-#Preview("SHButton Styles") {
-    VStack(spacing: 20) {
-        ForEach(SHButtonStyle.allCases, id: \.self) { style in
-            SHButton("버튼", icon: "star.fill", style: style) {}
+
+#Preview("Variants") {
+    ScrollView {
+        VStack(spacing: SH.spacing.md) {
+            ForEach(SHButtonVariant.allCases, id: \.self) { variant in
+                SHButton(variant.displayName, icon: "sparkles", variant: variant, fillsWidth: true) {}
+            }
+            SHButton("비활성", variant: .primary, fillsWidth: true) {}
+                .disabled(true)
+            SHButton("로딩", variant: .primary, isLoading: true, fillsWidth: true) {}
         }
+        .padding()
     }
-    .padding()
-    .shTheme(.pastelLavender)
+    .background(SHThemeBackground())
+    .shTheme(.lavender)
 }
 
-#Preview("SHButton Sizes") {
-    VStack(spacing: 20) {
-        ForEach(SHButtonSize.allCases, id: \.self) { size in
-            SHButton("버튼", size: size) {}
+#Preview("All Themes · Primary") {
+    ScrollView {
+        VStack(spacing: SH.spacing.md) {
+            ForEach(SHTheme.presets, id: \.name) { preset in
+                VStack(spacing: SH.spacing.xs) {
+                    SHButton(preset.name, variant: .primary, fillsWidth: true) {}
+                    SHButton(preset.name, variant: .secondary, fillsWidth: true) {}
+                }
+                .shTheme(preset.theme)
+            }
         }
+        .padding()
     }
-    .padding()
-    .shTheme(.pastelMint)
 }

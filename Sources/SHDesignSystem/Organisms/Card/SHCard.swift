@@ -1,244 +1,182 @@
 import SwiftUI
 
-// MARK: - Card Style
-public enum SHCardStyle: String, CaseIterable, Sendable {
-    case elevated
-    case outlined
-    case filled
-    case glass
-
-    public var displayName: String {
-        switch self {
-        case .elevated: return "Elevated"
-        case .outlined: return "Outlined"
-        case .filled: return "Filled"
-        case .glass: return "Glass"
-        }
-    }
-}
-
 // MARK: - SHCard
+
 public struct SHCard<Content: View>: View {
     @Environment(\.shTheme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
 
-    private let style: SHCardStyle
+    private let surface: SHSurfaceRole
     private let padding: CGFloat
     private let action: (() -> Void)?
     private let content: Content
 
+    /// trailing closure가 `content`로 가도록 `action`을 앞에 둔다.
     public init(
-        style: SHCardStyle = .elevated,
+        surface: SHSurfaceRole = .elevated,
         padding: CGFloat = SH.spacing.md,
-        @ViewBuilder content: () -> Content,
-        action: (() -> Void)? = nil
+        action: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
     ) {
-        self.style = style
+        self.surface = surface
         self.padding = padding
         self.action = action
         self.content = content()
     }
 
     public var body: some View {
-        Group {
-            if let action = action {
-                Button(action: action) {
-                    cardContent
-                }
-                .buttonStyle(.plain)
-            } else {
-                cardContent
-            }
+        if let action {
+            Button(action: action) { card }
+                .buttonStyle(.shPressable)
+                .accessibilityElement(children: .combine)
+        } else {
+            card
         }
     }
 
-    private var cardContent: some View {
+    private var card: some View {
         content
             .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(backgroundView)
-            .clipShape(RoundedRectangle(cornerRadius: SH.radius.xxl, style: .continuous))
-            .overlay(overlayView)
-            .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowY)
-    }
-
-    @ViewBuilder
-    private var backgroundView: some View {
-        switch style {
-        case .elevated, .outlined:
-            SH.colors.surface
-        case .filled:
-            theme.primaryColor.opacity(0.08)
-        case .glass:
-            RoundedRectangle(cornerRadius: SH.radius.xxl, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
-    }
-
-    @ViewBuilder
-    private var overlayView: some View {
-        switch style {
-        case .elevated:
-            EmptyView()
-        case .outlined:
-            RoundedRectangle(cornerRadius: SH.radius.xxl, style: .continuous)
-                .stroke(SH.colors.border, lineWidth: 1)
-        case .filled:
-            EmptyView()
-        case .glass:
-            RoundedRectangle(cornerRadius: SH.radius.xxl, style: .continuous)
-                .stroke(SH.colors.glassBorder, lineWidth: 1)
-        }
-    }
-
-    private var shadowColor: Color {
-        switch style {
-        case .elevated:
-            return colorScheme == .dark
-                ? Color.black.opacity(0.3)
-                : Color.black.opacity(0.08)
-        default:
-            return .clear
-        }
-    }
-
-    private var shadowRadius: CGFloat {
-        style == .elevated ? 16 : 0
-    }
-
-    private var shadowY: CGFloat {
-        style == .elevated ? 4 : 0
+            .shFullWidth(alignment: .leading)
+            .shSurface(surface, shape: theme.shape.card)
     }
 }
 
-// MARK: - Image Card
+// MARK: - SHImageCard
+
 public struct SHImageCard<Content: View>: View {
     @Environment(\.shTheme) private var theme
 
     private let image: Image
     private let imageHeight: CGFloat
-    private let style: SHCardStyle
+    private let surface: SHSurfaceRole
     private let action: (() -> Void)?
     private let content: Content
 
     public init(
         image: Image,
-        imageHeight: CGFloat = 160,
-        style: SHCardStyle = .elevated,
+        imageHeight: CGFloat = 168,
+        surface: SHSurfaceRole = .elevated,
         action: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.image = image
         self.imageHeight = imageHeight
-        self.style = style
+        self.surface = surface
         self.action = action
         self.content = content()
     }
 
     public var body: some View {
-        SHCard(style: style, padding: 0, content: {
+        SHCard(surface: surface, padding: 0, action: action) {
             VStack(spacing: 0) {
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(height: imageHeight)
+                    .frame(maxWidth: .infinity)
                     .clipped()
+                    .accessibilityHidden(true)
 
                 content
                     .padding(SH.spacing.md)
             }
-        }, action: action)
+        }
     }
 }
 
-// MARK: - Action Card
+// MARK: - SHActionCard
+
 public struct SHActionCard: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let subtitle: String?
     private let icon: String?
-    private let style: SHCardStyle
+    private let surface: SHSurfaceRole
     private let action: () -> Void
 
     public init(
         title: String,
         subtitle: String? = nil,
         icon: String? = nil,
-        style: SHCardStyle = .glass,
+        surface: SHSurfaceRole = .elevated,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
-        self.style = style
+        self.surface = surface
         self.action = action
     }
 
     public var body: some View {
-        SHCard(style: style, content: {
+        SHCard(surface: surface, action: action) {
             HStack(spacing: SH.spacing.md) {
-                if let icon = icon {
-                    SHCircledIcon(icon, size: .lg, style: .filled)
+                if let icon {
+                    SHCircledIcon(icon, size: .lg, role: .tinted)
                 }
 
                 VStack(alignment: .leading, spacing: SH.spacing.xxs) {
-                    Text(title)
-                        .font(SH.typography.titleMedium)
-                        .foregroundStyle(SH.colors.textPrimary)
-
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(SH.typography.bodySmall)
-                            .foregroundStyle(SH.colors.textSecondary)
+                    SHText(title, \.titleMedium)
+                    if let subtitle {
+                        SHText(subtitle, \.bodySmall, role: .secondary)
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: SH.spacing.xs)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(SH.colors.textTertiary)
+                    .font(.system(size: SH.size.iconSM, weight: .semibold))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .accessibilityHidden(true)
             }
-        }, action: action)
+        }
     }
 }
 
-// MARK: - Stats Card
-public struct SHStatsCard: View {
+// MARK: - SHStatCard
+
+public struct SHStatCard: View {
     @Environment(\.shTheme) private var theme
 
     private let title: String
     private let value: String
     private let trend: Trend?
     private let icon: String?
-    private let style: SHCardStyle
+    private let surface: SHSurfaceRole
 
-    public enum Trend {
+    public enum Trend: Sendable, Equatable {
         case up(String)
         case down(String)
-        case neutral(String)
+        case flat(String)
 
-        var color: Color {
+        var kind: SHStatusKind {
             switch self {
-            case .up: return SH.colors.success
-            case .down: return SH.colors.error
-            case .neutral: return SH.colors.textSecondary
+            case .up: return .success
+            case .down: return .error
+            case .flat: return .info
             }
         }
 
-        var icon: String {
+        var symbol: String {
             switch self {
             case .up: return "arrow.up.right"
             case .down: return "arrow.down.right"
-            case .neutral: return "arrow.right"
+            case .flat: return "arrow.right"
             }
         }
 
         var text: String {
             switch self {
-            case .up(let value), .down(let value), .neutral(let value):
-                return value
+            case .up(let v), .down(let v), .flat(let v): return v
+            }
+        }
+
+        var accessibilityPrefix: String {
+            switch self {
+            case .up: return "증가"
+            case .down: return "감소"
+            case .flat: return "변화 없음"
             }
         }
     }
@@ -248,83 +186,70 @@ public struct SHStatsCard: View {
         value: String,
         trend: Trend? = nil,
         icon: String? = nil,
-        style: SHCardStyle = .glass
+        surface: SHSurfaceRole = .elevated
     ) {
         self.title = title
         self.value = value
         self.trend = trend
         self.icon = icon
-        self.style = style
+        self.surface = surface
     }
 
     public var body: some View {
-        SHCard(style: style) {
-            VStack(alignment: .leading, spacing: SH.spacing.sm) {
+        SHCard(surface: surface) {
+            VStack(alignment: .leading, spacing: SH.spacing.xs) {
                 HStack {
-                    Text(title)
-                        .font(SH.typography.labelMedium)
-                        .foregroundStyle(SH.colors.textSecondary)
-
+                    SHText(title, \.labelMedium, role: .secondary)
                     Spacer()
-
-                    if let icon = icon {
-                        SHIcon(icon, size: .md, color: theme.primaryColor)
+                    if let icon {
+                        SHIcon(icon, size: .md, color: theme.colors.primaryText)
                     }
                 }
 
-                Text(value)
-                    .font(SH.typography.displaySmall)
-                    .foregroundStyle(SH.colors.textPrimary)
+                SHText(value, \.headlineMedium)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
 
-                if let trend = trend {
+                if let trend {
                     HStack(spacing: SH.spacing.xxs) {
-                        Image(systemName: trend.icon)
-                            .font(.system(size: 12, weight: .medium))
-                        Text(trend.text)
-                            .font(SH.typography.caption)
+                        Image(systemName: trend.symbol)
+                            .font(.system(size: SH.size.iconXS, weight: .bold))
+                        SHText(trend.text, \.caption, role: .custom(theme.colors.fill(for: trend.kind)))
                     }
-                    .foregroundStyle(trend.color)
+                    .foregroundStyle(theme.colors.fill(for: trend.kind))
                 }
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilityLabel))
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [title, value]
+        if let trend { parts.append("\(trend.accessibilityPrefix) \(trend.text)") }
+        return parts.joined(separator: ", ")
     }
 }
 
 // MARK: - Preview
-#Preview("SHCard Styles") {
+
+#Preview("Cards") {
     ScrollView {
-        VStack(spacing: 20) {
-            ForEach(SHCardStyle.allCases, id: \.self) { style in
-                SHCard(style: style) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(style.displayName)
-                            .font(SH.typography.titleMedium)
-                        Text("카드 내용이 들어갑니다.")
-                            .font(SH.typography.bodyMedium)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        VStack(spacing: SH.spacing.md) {
+            SHCard(surface: .elevated) { SHText("Elevated", \.titleMedium) }
+            SHCard(surface: .outlined) { SHText("Outlined", \.titleMedium) }
+            SHCard(surface: .tinted) { SHText("Tinted", \.titleMedium) }
+            SHCard(surface: .status(.warning)) { SHText("Status", \.titleMedium, role: .status(.warning)) }
+
+            SHActionCard(title: "프로필 설정", subtitle: "이름과 사진을 변경해보세요", icon: "person.fill") {}
+
+            HStack(spacing: SH.spacing.md) {
+                SHStatCard(title: "총 수익", value: "₩1,234,567", trend: .up("12.5%"), icon: "wonsign.circle.fill")
+                SHStatCard(title: "방문자", value: "8,234", trend: .down("3.2%"), icon: "person.2.fill")
             }
         }
         .padding()
     }
-    .shTheme(.pastelLavender)
-}
-
-#Preview("SHActionCard") {
-    VStack(spacing: 16) {
-        SHActionCard(title: "프로필 설정", subtitle: "이름과 사진을 변경해보세요", icon: "person.fill") {}
-        SHActionCard(title: "알림 설정", icon: "bell.fill", style: .outlined) {}
-    }
-    .padding()
-    .shTheme(.pastelPink)
-}
-
-#Preview("SHStatsCard") {
-    VStack(spacing: 16) {
-        SHStatsCard(title: "총 수익", value: "₩1,234,567", trend: .up("+12.5%"), icon: "chart.line.uptrend.xyaxis")
-        SHStatsCard(title: "방문자", value: "8,234", trend: .down("-3.2%"), icon: "person.2.fill")
-    }
-    .padding()
-    .shTheme(.pastelMint)
+    .background(SHThemeBackground())
+    .shTheme(.peach)
 }

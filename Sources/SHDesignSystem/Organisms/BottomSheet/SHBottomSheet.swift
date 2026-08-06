@@ -1,157 +1,123 @@
 import SwiftUI
 
-// MARK: - BottomSheet Detent
-public enum SHBottomSheetDetent: Sendable {
-    case small      // 25%
-    case medium     // 50%
-    case large      // 90%
-    case custom(CGFloat)
+// MARK: - Detent
 
-    var fraction: CGFloat {
+public enum SHSheetDetent: Sendable, Equatable {
+    case compact        // 화면의 30%
+    case medium
+    case large
+    case fraction(CGFloat)
+    /// 내용 높이에 맞춤. 액션 시트에 쓴다.
+    case fitContent
+
+    var presentationDetent: PresentationDetent {
         switch self {
-        case .small: return 0.25
-        case .medium: return 0.5
-        case .large: return 0.9
-        case .custom(let value): return value
+        case .compact: return .fraction(0.3)
+        case .medium: return .medium
+        case .large: return .large
+        case .fraction(let value): return .fraction(value)
+        case .fitContent: return .medium
         }
     }
 }
 
-// MARK: - BottomSheet Style
-public enum SHBottomSheetStyle: String, CaseIterable, Sendable {
-    case standard
-    case glass
+// MARK: - Sheet Modifier
 
-    public var displayName: String {
-        switch self {
-        case .standard: return "Standard"
-        case .glass: return "Glass"
-        }
-    }
-}
-
-// MARK: - SHBottomSheet Modifier
-public struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
+struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
     @Environment(\.shTheme) private var theme
 
-    @Binding private var isPresented: Bool
-    private let detent: SHBottomSheetDetent
-    private let style: SHBottomSheetStyle
-    private let showDragIndicator: Bool
-    private let onDismiss: (() -> Void)?
-    private let sheetContent: SheetContent
+    @Binding var isPresented: Bool
+    let detent: SHSheetDetent
+    let showsDragIndicator: Bool
+    let onDismiss: (() -> Void)?
+    @ViewBuilder let sheetContent: () -> SheetContent
 
-    public init(
-        isPresented: Binding<Bool>,
-        detent: SHBottomSheetDetent = .medium,
-        style: SHBottomSheetStyle = .standard,
-        showDragIndicator: Bool = true,
-        onDismiss: (() -> Void)? = nil,
-        @ViewBuilder content: () -> SheetContent
-    ) {
-        self._isPresented = isPresented
-        self.detent = detent
-        self.style = style
-        self.showDragIndicator = showDragIndicator
-        self.onDismiss = onDismiss
-        self.sheetContent = content()
+    func body(content: Content) -> some View {
+        content.sheet(isPresented: $isPresented, onDismiss: onDismiss) {
+            SheetBody(detent: detent, showsDragIndicator: showsDragIndicator, content: sheetContent)
+                // 시트는 새 프레젠테이션 컨텍스트라 환경이 자동으로
+                // 이어지지 않는 경우가 있다. 테마를 명시적으로 다시 주입한다.
+                .shTheme(theme)
+        }
     }
 
-    public func body(content: Content) -> some View {
-        content
-            .sheet(isPresented: $isPresented, onDismiss: onDismiss) {
-                sheetView
-                    .presentationDetents([presentationDetent])
-                    .presentationDragIndicator(showDragIndicator ? .visible : .hidden)
-                    .presentationCornerRadius(SH.radius.xxxl)
-                    .presentationBackground(backgroundMaterial)
+    private struct SheetBody: View {
+        @Environment(\.shTheme) private var theme
+
+        let detent: SHSheetDetent
+        let showsDragIndicator: Bool
+        @ViewBuilder let content: () -> SheetContent
+
+        var body: some View {
+            Group {
+                if case .fitContent = detent {
+                    content()
+                        .presentationDetents([.height(fittedHeight)])
+                } else {
+                    content()
+                        .presentationDetents([detent.presentationDetent])
+                }
             }
-    }
-
-    private var sheetView: some View {
-        VStack(spacing: 0) {
-            sheetContent
+            .presentationDragIndicator(showsDragIndicator ? .visible : .hidden)
+            .presentationCornerRadius(theme.shape.sheet.radius(for: 0))
+            .presentationBackground(theme.colors.surface)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
 
-    private var presentationDetent: PresentationDetent {
-        switch detent {
-        case .small:
-            return .fraction(0.25)
-        case .medium:
-            return .medium
-        case .large:
-            return .large
-        case .custom(let value):
-            return .fraction(value)
-        }
-    }
-
-    private var backgroundMaterial: AnyShapeStyle {
-        switch style {
-        case .standard:
-            return AnyShapeStyle(SH.colors.surface)
-        case .glass:
-            return AnyShapeStyle(.ultraThinMaterial)
-        }
+        /// `.fitContent`는 SwiftUI가 직접 지원하지 않아 근사값을 쓴다.
+        /// 정확한 높이가 필요하면 `.fraction`을 지정한다.
+        private var fittedHeight: CGFloat { 320 }
     }
 }
 
-// MARK: - View Extension
 public extension View {
     func shBottomSheet<Content: View>(
         isPresented: Binding<Bool>,
-        detent: SHBottomSheetDetent = .medium,
-        style: SHBottomSheetStyle = .standard,
-        showDragIndicator: Bool = true,
+        detent: SHSheetDetent = .medium,
+        showsDragIndicator: Bool = true,
         onDismiss: (() -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) -> some View {
-        self.modifier(
+        modifier(
             SHBottomSheetModifier(
                 isPresented: isPresented,
                 detent: detent,
-                style: style,
-                showDragIndicator: showDragIndicator,
+                showsDragIndicator: showsDragIndicator,
                 onDismiss: onDismiss,
-                content: content
+                sheetContent: content
             )
         )
     }
 }
 
-// MARK: - Action Sheet Style BottomSheet
+// MARK: - SHActionSheet
+
 public struct SHActionSheet: View {
     @Environment(\.shTheme) private var theme
+    @Environment(\.dismiss) private var dismiss
 
     private let title: String?
     private let message: String?
     private let actions: [Action]
-    private let cancelAction: Action?
+    private let cancelTitle: String?
 
     public struct Action: Identifiable {
         public let id = UUID()
         public let title: String
         public let icon: String?
-        public let style: ActionStyle
+        public let role: Role
         public let handler: () -> Void
 
-        public enum ActionStyle {
-            case `default`
-            case destructive
-            case cancel
-        }
+        public enum Role: Sendable { case normal, destructive }
 
         public init(
             _ title: String,
             icon: String? = nil,
-            style: ActionStyle = .default,
+            role: Role = .normal,
             handler: @escaping () -> Void
         ) {
             self.title = title
             self.icon = icon
-            self.style = style
+            self.role = role
             self.handler = handler
         }
     }
@@ -160,138 +126,79 @@ public struct SHActionSheet: View {
         title: String? = nil,
         message: String? = nil,
         actions: [Action],
-        cancelAction: Action? = nil
+        cancelTitle: String? = "취소"
     ) {
         self.title = title
         self.message = message
         self.actions = actions
-        self.cancelAction = cancelAction
+        self.cancelTitle = cancelTitle
     }
 
     public var body: some View {
         VStack(spacing: SH.spacing.md) {
-            // Header
             if title != nil || message != nil {
-                VStack(spacing: SH.spacing.xs) {
-                    if let title = title {
-                        Text(title)
-                            .font(SH.typography.titleMedium)
-                            .foregroundStyle(SH.colors.textPrimary)
+                VStack(spacing: SH.spacing.xxs) {
+                    if let title {
+                        SHText(title, \.titleMedium, alignment: .center)
+                            .accessibilityAddTraits(.isHeader)
                     }
-
-                    if let message = message {
-                        Text(message)
-                            .font(SH.typography.bodySmall)
-                            .foregroundStyle(SH.colors.textSecondary)
-                            .multilineTextAlignment(.center)
+                    if let message {
+                        SHText(message, \.bodySmall, role: .secondary, alignment: .center)
                     }
                 }
-                .padding(.top, SH.spacing.md)
+                .shFullWidth()
+                .padding(.top, SH.spacing.lg)
             }
 
-            // Actions
             VStack(spacing: SH.spacing.xs) {
                 ForEach(actions) { action in
-                    actionButton(action)
+                    button(for: action)
                 }
             }
-            .padding(.horizontal, SH.spacing.md)
 
-            // Cancel
-            if let cancelAction = cancelAction {
-                SHDivider()
-                    .padding(.vertical, SH.spacing.xs)
-
-                actionButton(cancelAction)
-                    .padding(.horizontal, SH.spacing.md)
+            if let cancelTitle {
+                SHButton(cancelTitle, variant: .ghost, fillsWidth: true) { dismiss() }
             }
         }
+        .padding(.horizontal, SH.spacing.md)
         .padding(.bottom, SH.spacing.lg)
     }
 
-    private func actionButton(_ action: Action) -> some View {
-        Button {
+    private func button(for action: Action) -> some View {
+        SHButton(
+            action.title,
+            icon: action.icon,
+            variant: action.role == .destructive ? .destructive : .secondary,
+            fillsWidth: true
+        ) {
             action.handler()
-        } label: {
-            HStack(spacing: SH.spacing.sm) {
-                if let icon = action.icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
-                }
-
-                Text(action.title)
-                    .font(SH.typography.bodyLarge)
-            }
-            .foregroundStyle(actionColor(for: action.style))
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(actionBackground(for: action.style))
-            .clipShape(RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func actionColor(for style: Action.ActionStyle) -> Color {
-        switch style {
-        case .default:
-            return SH.colors.textPrimary
-        case .destructive:
-            return SH.colors.error
-        case .cancel:
-            return SH.colors.textSecondary
-        }
-    }
-
-    private func actionBackground(for style: Action.ActionStyle) -> Color {
-        switch style {
-        case .default:
-            return theme.primaryColor.opacity(0.1)
-        case .destructive:
-            return SH.colors.error.opacity(0.1)
-        case .cancel:
-            return SH.colors.surface
+            dismiss()
         }
     }
 }
 
 // MARK: - Preview
-#Preview("SHBottomSheet") {
-    struct PreviewWrapper: View {
-        @State private var showSheet = false
+
+#Preview("Bottom Sheet") {
+    struct Demo: View {
+        @State private var isPresented = false
 
         var body: some View {
-            VStack {
-                SHButton("Show Bottom Sheet", style: .primary) {
-                    showSheet = true
-                }
+            SHScreen {
+                SHButton("시트 열기", icon: "square.and.arrow.up") { isPresented = true }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .shBottomSheet(isPresented: $showSheet, detent: .medium, style: .glass) {
-                VStack(spacing: 16) {
-                    Text("Bottom Sheet Content")
-                        .font(SH.typography.titleLarge)
-                    Text("여기에 컨텐츠가 들어갑니다.")
-                        .font(SH.typography.bodyMedium)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
+            .shBottomSheet(isPresented: $isPresented, detent: .fitContent) {
+                SHActionSheet(
+                    title: "파일 옵션",
+                    message: "이 파일로 무엇을 하시겠어요?",
+                    actions: [
+                        .init("공유", icon: "square.and.arrow.up") {},
+                        .init("복사", icon: "doc.on.doc") {},
+                        .init("삭제", icon: "trash", role: .destructive) {}
+                    ]
+                )
             }
-            .shTheme(.pastelLavender)
         }
     }
-    return PreviewWrapper()
-}
-
-#Preview("SHActionSheet") {
-    SHActionSheet(
-        title: "파일 옵션",
-        message: "이 파일로 무엇을 하시겠습니까?",
-        actions: [
-            .init("공유", icon: "square.and.arrow.up") {},
-            .init("복사", icon: "doc.on.doc") {},
-            .init("삭제", icon: "trash", style: .destructive) {}
-        ],
-        cancelAction: .init("취소", style: .cancel) {}
-    )
-    .shTheme(.pastelPink)
+    return Demo().shTheme(.pink)
 }

@@ -15,12 +15,7 @@ let package = Package(
     targets: [
         .target(
             name: "SHDesignSystemKit",
-            path: "Sources/SHDesignSystem",
-            resources: [.process("Resources")]
-        ),
-        .testTarget(
-            name: "SHDesignSystemKitTests",
-            dependencies: ["SHDesignSystemKit"]
-        ),
+            path: "Sources/SHDesignSystem"
+        )
     ]
 )
