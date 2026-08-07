@@ -19,6 +19,13 @@ public enum SHTextRole: Sendable, Equatable {
 ///
 /// 스타일 인자는 `SHTypographyScheme`의 키패스라, 타이포 스케일에
 /// 항목이 추가돼도 열거형을 따라 늘릴 필요가 없다.
+///
+/// 위젯처럼 폭이 고정된 자리에서 큰 숫자를 담아야 하면 `minimumScaleFactor`를 준다.
+/// 이게 없으면 큰 타이포가 잘려서 결국 `Text` + `.shFont`로 내려가게 된다.
+///
+/// ```swift
+/// SHText(countdown, \.displayLarge, lineLimit: 1, minimumScaleFactor: 0.6)
+/// ```
 public struct SHText: View {
     @Environment(\.shTheme) private var theme
 
@@ -27,19 +34,22 @@ public struct SHText: View {
     private let role: SHTextRole
     private let alignment: TextAlignment
     private let lineLimit: Int?
+    private let minimumScaleFactor: CGFloat
 
     public init(
         _ text: String,
         _ style: KeyPath<SHTypographyScheme, SHFontToken> = \.bodyMedium,
         role: SHTextRole = .primary,
         alignment: TextAlignment = .leading,
-        lineLimit: Int? = nil
+        lineLimit: Int? = nil,
+        minimumScaleFactor: CGFloat = 1
     ) {
         self.text = text
         self.style = style
         self.role = role
         self.alignment = alignment
         self.lineLimit = lineLimit
+        self.minimumScaleFactor = minimumScaleFactor
     }
 
     public var body: some View {
@@ -48,6 +58,7 @@ public struct SHText: View {
             .foregroundStyle(color)
             .multilineTextAlignment(alignment)
             .lineLimit(lineLimit)
+            .minimumScaleFactor(minimumScaleFactor)
     }
 
     private var color: Color {

@@ -189,6 +189,7 @@ theme.motion.standard
 
 ### Controls
 `SHToggle` `SHCheckbox` `SHRadioGroup` `SHSegmentedControl` `SHStepper` `SHSlider`
+`SHDatePicker` `SHThemePicker`
 
 ### Molecules
 `SHInputField` `SHSearchBar` `SHChip` `SHChipGroup`
@@ -208,7 +209,10 @@ theme.motion.standard
 `SHEmptyState` `SHErrorState` `SHStateView`
 
 ### Navigation
-`SHTabBar` `SHBottomBar`
+`SHTabBar` `SHBottomBar` `SHPageIndicator`
+
+### Charts
+`SHBarChart`
 
 ### Layout
 `SHScreen` `SHThemeBackground` `SHFlowLayout`
