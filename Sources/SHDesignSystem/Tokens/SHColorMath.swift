@@ -28,7 +28,10 @@ public struct SHRGBA: Sendable, Equatable {
 
 // MARK: - Color Math
 /// 팔레트를 손으로 찍지 않고 hue 하나에서 생성하기 위한 계산 유틸.
-/// 대비(WCAG)를 만족하는 조합만 내보내는 것이 이 타입의 존재 이유다.
+///
+/// `accessibleFill`/`accessibleInk`는 목표 대비에 닿을 때까지 밝기를 미는 탐색이다.
+/// 다만 밝기 범위(0.12~1.0)를 다 쓰고도 목표에 못 닿으면 그 지점에서 멈추므로,
+/// 반환값의 `contrast`를 확인하기 전까지 AA 통과가 보장되는 건 아니다.
 public enum SHColorMath {
 
     // MARK: HSB → RGB

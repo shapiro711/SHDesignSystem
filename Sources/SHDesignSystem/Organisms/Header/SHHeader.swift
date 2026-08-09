@@ -5,13 +5,17 @@ import SwiftUI
 public enum SHHeaderStyle: String, Sendable, CaseIterable {
     case standard
     case large
-    case glass
 
     public var displayName: String { rawValue.capitalized }
 }
 
 // MARK: - SHHeader
 
+/// **콘텐츠 안에 놓는** 헤더. 화면 상단의 네비게이션 바가 아니다.
+///
+/// 네비게이션 바 타이틀은 `shNavigationBar(_:)`로 시스템 바에 넘긴다. 이건
+/// 스크롤과 함께 밀려 올라가는 섹션 히어로 — 리스트 위 인사말, 카드 묶음의
+/// 제목 같은 자리에 쓴다.
 public struct SHHeader<Leading: View, Trailing: View>: View {
     @Environment(\.shTheme) private var theme
 
@@ -38,11 +42,11 @@ public struct SHHeader<Leading: View, Trailing: View>: View {
     public var body: some View {
         Group {
             switch style {
-            case .standard, .glass: inlineHeader
+            case .standard: inlineHeader
             case .large: largeHeader
             }
         }
-        .background(background)
+        .background(theme.colors.background)
     }
 
     private var inlineHeader: some View {
@@ -86,13 +90,6 @@ public struct SHHeader<Leading: View, Trailing: View>: View {
         .padding(.vertical, SH.spacing.md)
     }
 
-    @ViewBuilder
-    private var background: some View {
-        switch style {
-        case .standard, .large: theme.colors.background
-        case .glass: Rectangle().fill(.ultraThinMaterial)
-        }
-    }
 }
 
 // MARK: - Convenience Inits
@@ -113,54 +110,6 @@ public extension SHHeader where Leading == EmptyView {
     ) {
         self.init(title, subtitle: subtitle, style: style,
                   leading: { EmptyView() }, trailing: trailing)
-    }
-}
-
-// MARK: - SHNavigationHeader
-
-public struct SHNavigationHeader: View {
-    @Environment(\.dismiss) private var dismiss
-
-    private let title: String
-    private let style: SHHeaderStyle
-    private let showsBackButton: Bool
-    private let trailingIcon: String?
-    private let trailingLabel: String?
-    private let onTrailingTap: (() -> Void)?
-
-    public init(
-        _ title: String,
-        style: SHHeaderStyle = .standard,
-        showsBackButton: Bool = true,
-        trailingIcon: String? = nil,
-        trailingLabel: String? = nil,
-        onTrailingTap: (() -> Void)? = nil
-    ) {
-        self.title = title
-        self.style = style
-        self.showsBackButton = showsBackButton
-        self.trailingIcon = trailingIcon
-        self.trailingLabel = trailingLabel
-        self.onTrailingTap = onTrailingTap
-    }
-
-    public var body: some View {
-        SHHeader(title, style: style) {
-            if showsBackButton {
-                SHIconButton(icon: "chevron.left", accessibilityLabel: "뒤로") {
-                    dismiss()
-                }
-            }
-        } trailing: {
-            if let trailingIcon {
-                SHIconButton(
-                    icon: trailingIcon,
-                    accessibilityLabel: trailingLabel ?? "추가 동작"
-                ) {
-                    onTrailingTap?()
-                }
-            }
-        }
     }
 }
 
@@ -201,13 +150,19 @@ public struct SHSectionHeader: View {
 // MARK: - Preview
 
 #Preview("Headers") {
-    VStack(spacing: 0) {
-        SHNavigationHeader("설정", trailingIcon: "ellipsis", trailingLabel: "더 보기")
-        SHDivider()
-        SHHeader("오늘의 기록", subtitle: "3개의 항목", style: .large)
-        SHSectionHeader("최근", actionTitle: "모두 보기") {}
-        Spacer()
+    NavigationStack {
+        SHScreen {
+            VStack(spacing: 0) {
+                SHHeader("오늘의 기록", subtitle: "3개의 항목", style: .large)
+                SHDivider()
+                SHHeader("최근 활동", subtitle: "Standard") {
+                    SHIconButton(icon: "ellipsis", accessibilityLabel: "더 보기") {}
+                }
+                SHSectionHeader("최근", actionTitle: "모두 보기") {}
+                Spacer()
+            }
+        }
+        .shNavigationBar("설정", trailingIcon: "ellipsis", trailingLabel: "더 보기") {}
     }
-    .background(SHThemeBackground())
     .shTheme(.mint)
 }

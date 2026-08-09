@@ -183,7 +183,9 @@ struct SHBrandRamp: Sendable {
         let lightContainer = SHColorMath.hsb(hue, 0.20, 0.98)
         let darkContainer  = SHColorMath.hsb(hue, 0.38, 0.30)
 
-        // 컨테이너 위 전경색도 대비를 실제로 확인해서 고른다.
+        // 컨테이너 조합은 채움색과 달리 대비 탐색을 돌리지 않는다. 파스텔 톤을
+        // 유지하는 게 시그니처라 밝기를 밀면 룩이 무너지기 때문이다. 대신 채도차를
+        // 크게 벌린 고정값을 쓰고, hue 전 구간에서 7.9:1 이상이 나오는 걸 확인해 뒀다.
         let lightOnContainer = SHColorMath.hsb(hue, 0.80, 0.32)
         let darkOnContainer  = SHColorMath.hsb(hue, 0.22, 0.95)
 

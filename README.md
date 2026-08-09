@@ -14,14 +14,16 @@ ContentView().shTheme(SHTheme(hue: 312))
 
 ## 요구사항
 
-- iOS 18.0+
-- Swift 6.0+ / Xcode 16+
+- iOS 26.0+
+- Swift 6.2+ / Xcode 26+
+
+버전 분기는 두지 않습니다. 리퀴드 글래스가 항상 있다고 가정하고 씁니다.
 
 ## 설치
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/shapiro711/SHDesignSystem.git", from: "2.0.0")
+    .package(url: "https://github.com/shapiro711/SHDesignSystem.git", from: "3.0.0")
 ]
 
 .target(
@@ -114,11 +116,13 @@ struct RootView: View {
 
 **`primary`를 글자색으로 쓰면 안 됩니다.** 채움색은 배경으로 쓸 때 대비를 맞춘 값이라 밝은 색조에서 표면 위 글자로는 깨집니다. 표면 위 브랜드 글자는 `primaryText`입니다.
 
-### 3. 대비는 계산으로 보장된다
+### 3. 채움색 대비는 계산으로 뽑는다
 
-색을 손으로 찍지 않고, 전경색과의 대비가 **WCAG AA(4.5:1)** 이상이 될 때까지 밝기를 조정해서 뽑습니다. 그래서 어떤 hue를 넣어도 무너지지 않습니다.
+`primary`·`secondary`·상태 채움색과 `primaryText`는 색을 손으로 찍지 않고, 전경색과의 대비가 **WCAG AA(4.5:1)** 이상이 될 때까지 밝기를 조정해서 뽑습니다. 그래서 어떤 hue를 넣어도 버튼 글자나 링크가 묻히지 않습니다.
 
 전경색은 밝은 잉크/어두운 잉크 중 유리한 쪽을 자동으로 고릅니다. 노랑 계열은 "밝은 배경 + 어두운 글씨", 보라 계열은 "진한 배경 + 흰 글씨"로 갈립니다.
+
+컨테이너 계열과 중립색(표면·글자·선)은 계산을 거치지 않는 **시그니처 팔레트의 고정값**입니다. 실측 대비는 프리셋 포함 hue 11종 기준으로 컨테이너 조합 7.9:1 이상, `textPrimary` 13.8:1 이상, `textSecondary` 5.6:1 이상입니다. **`textTertiary`만 3.0~4.4로 AA 본문 기준에 못 미치므로** chevron·부가 정보 전용으로 쓰고, 읽어야 하는 글자에는 `textSecondary`를 씁니다.
 
 ### 4. 타이포는 Dynamic Type을 따른다
 
@@ -140,6 +144,23 @@ theme.shape.chip        // .capsule
 ```
 
 반경 값을 직접 고르지 말고 역할을 쓰면, 나중에 시그니처를 각지게 바꿔도 한 곳만 고치면 됩니다.
+
+### 6. 네비게이션 바와 탭바는 애플 것을 쓴다
+
+시그니처가 적용되지 **않는** 유일한 자리입니다. 바는 시스템이 리퀴드 글래스로 그리고, 이 디자인 시스템이 얹는 건 테마 tint뿐입니다.
+
+```swift
+SHTabView(tabItems, selection: $selection) { tab in
+    NavigationStack {
+        SHScreen { ScrollView { … } }
+            .shNavigationBar("기록", trailingIcon: "plus", trailingLabel: "추가") { add() }
+    }
+}
+```
+
+리퀴드 글래스는 바 뒤로 지나가는 콘텐츠의 굴절·명암·스크롤 가장자리 반응을 시스템이 매 프레임 계산하는 것이라, `Material` 한 겹으로는 재현되지 않고 흉내 내면 OS가 바뀔 때마다 우리 것만 어긋납니다. 그래서 2.x의 커스텀 탭바(선택 탭 파스텔 pill)를 포기했습니다. 나머지 자리 — 카드, 칩, 버튼, 시트 — 의 시그니처는 그대로입니다.
+
+`SHScreen` 안에는 `ScrollView`나 `List`를 그대로 넣고, 바를 피하려고 여백을 직접 주지 마세요. 콘텐츠가 바 **밑으로** 지나가야 유리가 살아납니다.
 
 ---
 
@@ -197,7 +218,7 @@ theme.motion.standard
 
 ### Organisms
 `SHCard` `SHImageCard` `SHActionCard` `SHStatCard`
-`SHHeader` `SHNavigationHeader` `SHSectionHeader`
+`SHHeader` `SHSectionHeader`
 `SHBottomSheet`(modifier) `SHActionSheet`
 
 ### Feedback
@@ -209,7 +230,7 @@ theme.motion.standard
 `SHEmptyState` `SHErrorState` `SHStateView`
 
 ### Navigation
-`SHTabBar` `SHBottomBar` `SHPageIndicator`
+`SHTabView` `shNavigationBar`(modifier) `SHToolbarButton` `SHBottomBar` `SHPageIndicator`
 
 ### Charts
 `SHBarChart`
@@ -248,7 +269,7 @@ SHStateView(
 
 시스템이 기본으로 보장하는 것들입니다.
 
-- **대비** — 모든 색 조합이 WCAG AA(4.5:1) 이상
+- **대비** — 채움색(`primary`·`secondary`·상태색)과 `primaryText`는 AA(4.5:1)까지 계산으로 끌어올림. 컨테이너·중립색은 고정값이며 `textTertiary`(3.0~4.4)만 AA 본문 기준 미달 — 부가 정보 전용
 - **Dynamic Type** — 전체 타이포 토큰이 스케일됨
 - **VoiceOver** — `SHIconButton`은 `accessibilityLabel`이 **필수 인자**. 장식 아이콘은 자동으로 감춰짐
 - **터치 영역** — `.shMinTapTarget()`으로 44pt 보장
@@ -266,6 +287,39 @@ SHStateView(
 xcodebuild -scheme SHDesignSystem \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
 ```
+
+---
+
+## 3.0.0 마이그레이션
+
+네비게이션 바와 탭바를 시스템에 넘기고, **배포 타깃을 iOS 26으로 올렸습니다.** 버전 분기를 코드에 두지 않기 위한 선택입니다 — 대신 iOS 18~25 기기는 지원하지 않습니다.
+
+| 2.x | 3.0 |
+|---|---|
+| `SHTabBar(items, selection:)` — 바만 그림 | `SHTabView(items, selection:) { tab in … }` — 콘텐츠까지 감쌈 |
+| `SHNavigationHeader("제목", trailingIcon:…)` | `.shNavigationBar("제목", trailingIcon:…)` |
+| `SHHeaderStyle.glass` | 삭제 (시스템 바가 담당) |
+| `SHTabItem(badge: SHBadge?)` | `SHTabItem(badge: SHTabBadge?)` — `.count` / `.text`, 점 배지 없음 |
+| 툴바 안 `SHIconButton` | `SHToolbarButton` |
+| `shGlass(_:shape:showsBorder:)` / `SHGlassStyle` | 삭제 (호출부가 없던 API). 바 배경은 `shBarGlass()` |
+| tint = `primary` | tint = `primaryText` |
+| iOS 18.0+ / swift-tools 6.0 | iOS 26.0+ / swift-tools 6.2 |
+
+화면 구조도 함께 바뀝니다. 바를 `VStack`으로 쌓던 것을 `NavigationStack` + `SHTabView`로 옮기고, 탭마다 스택을 따로 둡니다.
+
+```swift
+// 2.x
+VStack(spacing: 0) { header; content; SHTabBar(items, selection: $tab) }
+
+// 3.0
+SHTabView(items, selection: $tab) { tab in
+    NavigationStack {
+        content(tab).shNavigationBar(title(tab))
+    }
+}
+```
+
+뒤로 가기 버튼과 스와이프 back은 `NavigationStack`이 줍니다 — `navigationBarBackButtonHidden(true)`와 직접 만든 chevron 버튼은 지우세요.
 
 ---
 

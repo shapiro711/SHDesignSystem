@@ -17,11 +17,9 @@ struct ContentView: View {
                 .padding(SH.spacing.md)
             }
             .background(SHThemeBackground())
-            .navigationTitle("SH Design System")
-            .navigationBarTitleDisplayMode(.inline)
+            .shNavigationBar("SH Design System")
         }
         .shTheme(theme)
-        .tint(theme.colors.primaryText)
     }
 
     private var sections: some View {
@@ -57,8 +55,7 @@ struct ContentView: View {
         NavigationLink {
             destination()
                 .background(SHThemeBackground())
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
+                .shNavigationBar(title)
         } label: {
             SHCard(surface: .elevated, padding: SH.spacing.sm) {
                 HStack(spacing: SH.spacing.md) {

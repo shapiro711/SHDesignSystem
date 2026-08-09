@@ -1,0 +1,148 @@
+import SwiftUI
+
+// MARK: - Title Style
+
+public enum SHNavigationTitleStyle: Sendable, CaseIterable {
+    case inline
+    case large
+
+    var displayMode: NavigationBarItem.TitleDisplayMode {
+        switch self {
+        case .inline: return .inline
+        case .large: return .large
+        }
+    }
+}
+
+// MARK: - Toolbar Button
+
+/// 네비게이션 바에 넣는 아이콘 버튼.
+///
+/// 툴바 안에서는 `SHIconButton`을 쓰면 안 된다. 그쪽은 자기 배경(원형 채움·테두리)을
+/// 직접 그리므로 유리 바 위에 불투명한 원이 하나 더 얹힌다. 여기서는 배경 없는
+/// 아이콘만 두고, 캡슐 배경과 유리 처리는 시스템에 맡긴다.
+public struct SHToolbarButton: View {
+    private let icon: String
+    private let accessibilityLabel: String
+    private let role: ButtonRole?
+    private let action: () -> Void
+
+    /// - Parameter accessibilityLabel: 아이콘만 있는 버튼은 VoiceOver가 읽을
+    ///   텍스트가 없다. 그래서 선택 항목이 아니라 **필수 인자**다.
+    public init(
+        icon: String,
+        accessibilityLabel: String,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.icon = icon
+        self.accessibilityLabel = accessibilityLabel
+        self.role = role
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(role: role, action: action) {
+            Image(systemName: icon)
+        }
+        .accessibilityLabel(Text(accessibilityLabel))
+    }
+}
+
+// MARK: - Navigation Bar
+
+public extension View {
+    /// 시스템 네비게이션 바에 타이틀과 좌·우 액션을 얹는다.
+    ///
+    /// 바 자체는 그리지 않는다. 시스템이 리퀴드 글래스로 렌더링하고,
+    /// 스크롤 가장자리 반응도 시스템이 처리한다.
+    /// 뒤로 가기 버튼과 스와이프 back 제스처도 `NavigationStack`이 알아서 준다 —
+    /// 직접 그리지 말고 `NavigationStack` 안에서 이 모디파이어만 붙인다.
+    func shNavigationBar<Leading: View, Trailing: View>(
+        _ title: String,
+        style: SHNavigationTitleStyle = .inline,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        let leadingContent = leading()
+        let trailingContent = trailing()
+
+        return shTitle(title, style: style)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { leadingContent }
+                ToolbarItem(placement: .topBarTrailing) { trailingContent }
+            }
+    }
+
+    /// 타이틀만. 툴바 항목을 만들지 않으므로 뒤로 가기 버튼 자리를 건드리지 않는다.
+    func shNavigationBar(
+        _ title: String,
+        style: SHNavigationTitleStyle = .inline
+    ) -> some View {
+        shTitle(title, style: style)
+    }
+
+    /// 타이틀 + 우측 액션.
+    func shNavigationBar<Trailing: View>(
+        _ title: String,
+        style: SHNavigationTitleStyle = .inline,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        let trailingContent = trailing()
+
+        return shTitle(title, style: style)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { trailingContent }
+            }
+    }
+
+    /// 타이틀 + 우측 아이콘 버튼 하나. 가장 흔한 형태의 축약형이다.
+    func shNavigationBar(
+        _ title: String,
+        style: SHNavigationTitleStyle = .inline,
+        trailingIcon: String,
+        trailingLabel: String,
+        onTrailingTap: @escaping () -> Void
+    ) -> some View {
+        shNavigationBar(title, style: style) {
+            SHToolbarButton(
+                icon: trailingIcon,
+                accessibilityLabel: trailingLabel,
+                action: onTrailingTap
+            )
+        }
+    }
+}
+
+private extension View {
+    func shTitle(_ title: String, style: SHNavigationTitleStyle) -> some View {
+        navigationTitle(title)
+            .navigationBarTitleDisplayMode(style.displayMode)
+    }
+}
+
+// MARK: - Preview
+
+#Preview("Navigation Bar") {
+    NavigationStack {
+        SHScreen {
+            ScrollView {
+                VStack(spacing: SH.spacing.md) {
+                    ForEach(0..<20, id: \.self) { index in
+                        SHCard {
+                            SHText("항목 \(index)", \.bodyLarge)
+                        }
+                    }
+                }
+                .padding(SH.spacing.md)
+            }
+        }
+        .shNavigationBar(
+            "기록",
+            style: .large,
+            trailingIcon: "plus",
+            trailingLabel: "기록 추가"
+        ) {}
+    }
+    .shTheme(.lavender)
+}

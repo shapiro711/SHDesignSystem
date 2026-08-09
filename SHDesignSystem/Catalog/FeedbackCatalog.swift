@@ -198,31 +198,80 @@ struct NavigationCatalog: View {
     @Environment(\.shTheme) private var theme
     @State private var tab = 0
 
+    private let tabItems = [
+        SHTabItem(tag: 0, title: "홈", icon: "house", selectedIcon: "house.fill"),
+        SHTabItem(tag: 1, title: "알림", icon: "bell", selectedIcon: "bell.fill", badge: .count(5)),
+        SHTabItem(tag: 2, title: "내 정보", icon: "person", selectedIcon: "person.fill"),
+        SHTabItem(tag: 3, title: "검색", icon: "magnifyingglass", role: .search)
+    ]
+
     var body: some View {
-        VStack(spacing: 0) {
-            CatalogPage {
-                CatalogGroup("Headers") {
-                    VStack(spacing: SH.spacing.md) {
-                        SHHeader("헤더 타이틀", subtitle: "Standard") {
-                            SHIconButton(icon: "ellipsis", accessibilityLabel: "더 보기") {}
+        CatalogPage {
+            CatalogGroup("Navigation Bar — 시스템이 그린다") {
+                VStack(alignment: .leading, spacing: SH.spacing.sm) {
+                    SHText(
+                        "이 화면 위에 붙어 있는 바가 그것이다. 시스템이 리퀴드 글래스로 그린다. "
+                            + "`shNavigationBar(_:)`는 타이틀과 툴바 항목만 시스템에 넘기고 배경은 손대지 않는다.",
+                        \.bodySmall,
+                        role: .secondary
+                    )
+
+                    codeBlock(
+                        """
+                        NavigationStack {
+                            SHScreen { ScrollView { … } }
+                                .shNavigationBar(
+                                    "기록",
+                                    style: .large,
+                                    trailingIcon: "plus",
+                                    trailingLabel: "기록 추가"
+                                ) { add() }
                         }
-                        SHDivider()
-                        SHHeader("오늘의 기록", subtitle: "3개의 항목", style: .large)
-                        SHDivider()
-                        SHHeader("Glass", subtitle: "반투명 배경", style: .glass)
+                        """
+                    )
+                }
+            }
+
+            CatalogGroup("Tab View — 시스템이 그린다") {
+                VStack(alignment: .leading, spacing: SH.spacing.sm) {
+                    SHTabView(tabItems, selection: $tab) { tag in
+                        SHScreen {
+                            SHText("탭 \(tag)", \.headlineMedium)
+                        }
                     }
-                    .background(theme.colors.surface)
+                    .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous))
-                }
 
-                CatalogGroup("Section Header") {
-                    VStack {
-                        SHSectionHeader("최근", actionTitle: "모두 보기") {}
-                        SHSectionHeader("추천")
+                    SHText(
+                        "선택 색은 테마 tint를 따라간다. 마지막 탭은 `role: .search` — "
+                            + "탭바에서 떨어져 나와 독립된 유리 캡슐이 된다.",
+                        \.captionSmall,
+                        role: .tertiary
+                    )
+                }
+            }
+
+            CatalogGroup("Headers — 콘텐츠 안에 놓는다") {
+                VStack(spacing: SH.spacing.md) {
+                    SHHeader("헤더 타이틀", subtitle: "Standard") {
+                        SHIconButton(icon: "ellipsis", accessibilityLabel: "더 보기") {}
                     }
+                    SHDivider()
+                    SHHeader("오늘의 기록", subtitle: "3개의 항목", style: .large)
                 }
+                .background(theme.colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: SH.radius.xl, style: .continuous))
+            }
 
-                CatalogGroup("Bottom Bar") {
+            CatalogGroup("Section Header") {
+                VStack {
+                    SHSectionHeader("최근", actionTitle: "모두 보기") {}
+                    SHSectionHeader("추천")
+                }
+            }
+
+            CatalogGroup("Bottom Bar") {
+                VStack(alignment: .leading, spacing: SH.spacing.sm) {
                     SHBottomBar {
                         HStack(spacing: SH.spacing.sm) {
                             SHButton("취소", variant: .ghost, fillsWidth: true) {}
@@ -230,18 +279,23 @@ struct NavigationCatalog: View {
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: SH.radius.lg, style: .continuous))
+
+                    SHText(
+                        "탭바가 있는 화면에서는 쓰지 않는다. 유리를 두 겹 겹치면 둘 다 탁해진다.",
+                        \.captionSmall,
+                        role: .tertiary
+                    )
                 }
             }
-
-            SHTabBar(
-                [
-                    SHTabItem(tag: 0, title: "홈", icon: "house", selectedIcon: "house.fill"),
-                    SHTabItem(tag: 1, title: "탐색", icon: "magnifyingglass"),
-                    SHTabItem(tag: 2, title: "알림", icon: "bell", selectedIcon: "bell.fill", badge: .count(5)),
-                    SHTabItem(tag: 3, title: "내 정보", icon: "person", selectedIcon: "person.fill")
-                ],
-                selection: $tab
-            )
         }
+    }
+
+    private func codeBlock(_ code: String) -> some View {
+        Text(code)
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(theme.colors.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(SH.spacing.sm)
+            .shSurface(.outlined, shape: theme.shape.card)
     }
 }

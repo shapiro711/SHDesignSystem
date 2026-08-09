@@ -105,11 +105,16 @@ public extension View {
     /// 테마를 하위 트리에 주입한다. 앱 루트에서 한 번 호출하면 된다.
     ///
     /// `tint`도 함께 건다. SH 컴포넌트는 각자 브랜드색을 칠하지만,
-    /// `DatePicker`·`List` 스와이프처럼 SH 래퍼 없이 쓰는 시스템 컨트롤은
+    /// 네비게이션 바·탭바·`DatePicker`처럼 시스템이 직접 그리는 것들은
     /// tint가 없으면 iOS 기본색(파랑)으로 렌더링돼 화면에서 혼자 튄다.
+    ///
+    /// 값은 `primary`가 아니라 **`primaryText`**다. 시스템은 tint를 거의 항상
+    /// 전경색으로 쓴다 — 탭바 선택 아이콘, 툴바 버튼, 링크. `primary`는 배경으로
+    /// 깔았을 때 대비를 맞춘 채움색이라 밝은 색조에서 표면 위 전경으로 쓰면 묻힌다.
+    /// (README "primary를 글자색으로 쓰면 안 됩니다"와 같은 이유다.)
     func shTheme(_ theme: SHTheme) -> some View {
         environment(\.shTheme, theme)
-            .tint(theme.colors.primary)
+            .tint(theme.colors.primaryText)
     }
 
     /// 색조만 바꿔 주입하는 축약형.
