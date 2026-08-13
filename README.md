@@ -206,7 +206,7 @@ theme.motion.standard
 ### Atoms
 `SHButton` `SHIconButton` `SHText` `SHIconText` `SHIcon` `SHCircledIcon`
 `SHDivider` `SHLabeledDivider` `SHTextField` `SHTextArea`
-`SHAvatar` `SHAvatarGroup` `SHBadge` `SHTag`
+`SHAvatar` `SHAvatarGroup` `SHBadge` `SHTag` `SHTokenBadge`
 
 ### Controls
 `SHToggle` `SHCheckbox` `SHRadioGroup` `SHSegmentedControl` `SHStepper` `SHSlider`
@@ -287,6 +287,32 @@ SHStateView(
 xcodebuild -scheme SHDesignSystem \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
 ```
+
+---
+
+## 3.1.0 — 앱이 소유한 색을 위한 배지
+
+`SHBadge`·`SHTag`는 색을 테마 상태(`SHStatusKind`)에서 꺼내 씁니다. 그래서 **앱이 데이터로 소유한 색**은 그리지 못했습니다 — 사용자가 고른 근무 유형 색, 카테고리 색, 캘린더 색처럼 테마 색조를 바꿔도 따라 변하면 안 되는 값들입니다.
+
+그 자리를 앱마다 인라인으로 다시 만들다 보면(`Text` + `.font(.system(size:))` + `.background` + `.clipShape`) 크기·모양·Dynamic Type 대응이 호출부마다 갈립니다. `SHTokenBadge`가 그 조각을 흡수합니다.
+
+```swift
+SHTokenBadge(
+    "N",
+    foreground: myPalette.ink,        // 색만 밖에서 받는다
+    container: myPalette.container,
+    size: .md,                        // .sm / .md / .lg / .xl
+    layout: .tile,                    // .pill / .tile / .wide
+    isMuted: type.isOffDuty           // 후퇴시킬 때
+)
+```
+
+- 타이포는 `labelMedium`~`headlineSmall` 토큰에서 굵기만 bold로 바꿔 씁니다 — **Dynamic Type을 그대로 따릅니다.**
+- 색면 크기도 `@ScaledMetric`으로 함께 커집니다. 글자만 커지고 색면이 고정이면 라벨이 잘립니다.
+- 모양은 `theme.shape.badge`(pill) / `theme.shape.thumbnail`(tile·wide)를 따릅니다.
+- **두 색의 대비는 넘기는 쪽 책임입니다.** `SHColorMath.contrastRatio(_:_:)`로 검증하세요 — 테마가 만든 색이 아니라 계산 보정을 태울 수 없습니다.
+
+추가만 있고 기존 API 변경은 없습니다.
 
 ---
 
