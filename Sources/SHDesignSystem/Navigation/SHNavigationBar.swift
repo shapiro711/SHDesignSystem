@@ -58,6 +58,19 @@ public extension View {
     /// 스크롤 가장자리 반응도 시스템이 처리한다.
     /// 뒤로 가기 버튼과 스와이프 back 제스처도 `NavigationStack`이 알아서 준다 —
     /// 직접 그리지 말고 `NavigationStack` 안에서 이 모디파이어만 붙인다.
+    /// 액션이 여러 개면 클로저 안에 **그냥 나란히 둔다.** `HStack`으로 묶지 않는다 —
+    /// 묶으면 iOS 26이 그 묶음을 컨트롤 하나로 보고 유리 캡슐을 하나만 씌워서
+    /// 버튼들이 한 알약 안에 붙어 버린다. `ToolbarItemGroup`이 각각을 별도 항목으로
+    /// 펼쳐 주므로 간격과 유리 처리는 시스템이 맡는다.
+    ///
+    /// ```swift
+    /// .shNavigationBar("2026년 8월") {
+    ///     SHToolbarButton(icon: "chevron.left", accessibilityLabel: "이전 달") { }
+    /// } trailing: {
+    ///     SHToolbarButton(icon: "chevron.right", accessibilityLabel: "다음 달") { }
+    ///     Button("오늘") { }
+    /// }
+    /// ```
     func shNavigationBar<Leading: View, Trailing: View>(
         _ title: String,
         style: SHNavigationTitleStyle = .inline,
@@ -69,8 +82,8 @@ public extension View {
 
         return shTitle(title, style: style)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { leadingContent }
-                ToolbarItem(placement: .topBarTrailing) { trailingContent }
+                ToolbarItemGroup(placement: .topBarLeading) { leadingContent }
+                ToolbarItemGroup(placement: .topBarTrailing) { trailingContent }
             }
     }
 
@@ -92,7 +105,7 @@ public extension View {
 
         return shTitle(title, style: style)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { trailingContent }
+                ToolbarItemGroup(placement: .topBarTrailing) { trailingContent }
             }
     }
 

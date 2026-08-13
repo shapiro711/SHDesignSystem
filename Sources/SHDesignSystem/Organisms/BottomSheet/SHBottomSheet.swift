@@ -23,6 +23,9 @@ public enum SHSheetDetent: Sendable, Equatable {
 
 // MARK: - Sheet Modifier
 
+/// 측정 전 첫 프레임에서 시트가 납작하게 뜨지 않도록 잡아 두는 하한.
+private let minimumFittedHeight: CGFloat = 160
+
 struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
     @Environment(\.shTheme) private var theme
 
@@ -44,6 +47,9 @@ struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
     private struct SheetBody: View {
         @Environment(\.shTheme) private var theme
 
+        /// 내용의 자연 높이. 0이면 아직 측정 전이다.
+        @State private var contentHeight: CGFloat = 0
+
         let detent: SHSheetDetent
         let showsDragIndicator: Bool
         @ViewBuilder let content: () -> SheetContent
@@ -51,8 +57,7 @@ struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
         var body: some View {
             Group {
                 if case .fitContent = detent {
-                    content()
-                        .presentationDetents([.height(fittedHeight)])
+                    fitContentBody
                 } else {
                     content()
                         .presentationDetents([detent.presentationDetent])
@@ -63,9 +68,35 @@ struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
             .presentationBackground(theme.colors.surface)
         }
 
-        /// `.fitContent`는 SwiftUI가 직접 지원하지 않아 근사값을 쓴다.
-        /// 정확한 높이가 필요하면 `.fraction`을 지정한다.
-        private var fittedHeight: CGFloat { 320 }
+        /// 내용 높이를 **실제로 재서** detent에 반영한다.
+        ///
+        /// 예전에는 상수 320을 썼다. 그래서 내용이 그보다 길어지는 순간
+        /// (예: 선택에 따라 행이 추가되는 시트) 위쪽이 잘려 나갔다.
+        ///
+        /// `ScrollView`로 감싸는 게 핵심이다. 두 가지를 동시에 해결한다.
+        /// 1. 스크롤 뷰는 자식에게 높이를 무제한으로 제안하므로, detent가 아직
+        ///    작아도 **자연 높이**가 측정된다. 감싸지 않으면 잘린 높이를 재고
+        ///    그 값으로 detent를 정하는 악순환에 빠진다.
+        /// 2. 내용이 화면보다 길면 `.height()` detent는 시스템이 상한으로 잘라 주는데,
+        ///    그때 넘치는 부분이 잘리지 않고 스크롤된다.
+        private var fitContentBody: some View {
+            ScrollView {
+                content()
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        contentHeight = height
+                    }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .presentationDetents([.height(fittedHeight)])
+            // 높이가 바뀔 때 튀지 않게 한다 — 선택에 따라 행이 늘고 주는 시트에서 눈에 띈다
+            .animation(theme.motion.standard, value: fittedHeight)
+        }
+
+        private var fittedHeight: CGFloat {
+            max(contentHeight, minimumFittedHeight)
+        }
     }
 }
 
