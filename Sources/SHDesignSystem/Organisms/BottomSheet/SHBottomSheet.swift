@@ -27,28 +27,36 @@ public enum SHSheetDetent: Sendable, Equatable {
 private let minimumFittedHeight: CGFloat = 160
 
 struct SHBottomSheetModifier<SheetContent: View>: ViewModifier {
+    @Environment(\.shTheme) private var theme
+
     @Binding var isPresented: Bool
     let detent: SHSheetDetent
     let showsDragIndicator: Bool
     let onDismiss: (() -> Void)?
     @ViewBuilder let sheetContent: () -> SheetContent
 
-    // 시트 내용에 테마를 **다시 주입하지 않는다.**
-    //
-    // 예전에는 "환경이 이어지지 않는 경우가 있다"며 모디파이어가 읽은 테마를
-    // 시트에 덮어썼다. 그런데 모디파이어의 @Environment는 자기가 붙은 뷰의
-    // 바깥 환경에서 값을 읽는다. 앱이
-    //
-    //     TabView { … }.shTheme(.sky).shBottomSheet { … }
-    //
-    // 처럼 쓰면 .shTheme은 TabView 아래로만 흐르므로 모디파이어가 읽는 값은
-    // 환경 기본값(.lavender)이었고, 그 값이 시트에 **덮어씌워졌다.**
-    // 앱은 sky인데 시트만 라벤더로 뜨는 원인이 이 재주입이었다.
-    //
-    // 시트는 자신을 띄운 뷰의 환경을 물려받는다. 그대로 두는 쪽이 맞다.
+    /// 시트는 새 프레젠테이션 컨텍스트라 `\.shTheme`이 자동으로 이어지지 않는다.
+    /// 그래서 명시적으로 다시 주입한다.
+    ///
+    /// **여기서 읽는 테마는 이 모디파이어가 붙은 자리의 바깥 환경 값이다.**
+    /// 그래서 `.shTheme`은 반드시 이 모디파이어보다 **위**에 있어야 한다.
+    /// 앱 루트(`WindowGroup` 바로 안)에서 한 번 거는 게 정답이다.
+    ///
+    /// ```swift
+    /// // ✅ 루트에서 한 번 — 아래의 모든 시트가 테마를 받는다
+    /// WindowGroup { RootView().shTheme(.sky) }
+    ///
+    /// // ❌ 프레젠테이션 모디파이어보다 아래에 걸면
+    /// //    여기서 읽는 값은 환경 기본값(.lavender)이 되고
+    /// //    시트만 라벤더로 뜬다
+    /// TabView { … }
+    ///     .shTheme(.sky)
+    ///     .shBottomSheet(isPresented: $isOpen) { … }
+    /// ```
     func body(content: Content) -> some View {
         content.sheet(isPresented: $isPresented, onDismiss: onDismiss) {
             SheetBody(detent: detent, showsDragIndicator: showsDragIndicator, content: sheetContent)
+                .shTheme(theme)
         }
     }
 
