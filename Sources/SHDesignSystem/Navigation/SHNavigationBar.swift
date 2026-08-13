@@ -87,6 +87,34 @@ public extension View {
             }
     }
 
+    /// 툴바 항목을 직접 구성한다.
+    ///
+    /// iOS 26은 **인접한 툴바 항목을 유리 캡슐 하나로 묶는다.** 관련된 액션끼리
+    /// 묶이는 게 기본값이라 대개는 그대로 두면 되지만, 성격이 다른 액션을 각자
+    /// 캡슐에 담으려면 사이에 `ToolbarSpacer`를 넣어야 한다.
+    /// `ToolbarSpacer`는 `View`가 아니라 `ToolbarContent`라 `trailing:` 클로저로는
+    /// 표현할 수 없다 — 그래서 이 통로를 연다.
+    ///
+    /// ```swift
+    /// .shNavigationBar("2026년 8월") {
+    ///     ToolbarItem(placement: .topBarTrailing) {
+    ///         SHToolbarButton(icon: "chevron.right", accessibilityLabel: "다음 달") { }
+    ///     }
+    ///     ToolbarSpacer(.fixed, placement: .topBarTrailing)   // 캡슐을 나눈다
+    ///     ToolbarItem(placement: .topBarTrailing) {
+    ///         Button("오늘") { }
+    ///     }
+    /// }
+    /// ```
+    func shNavigationBar<Content: ToolbarContent>(
+        _ title: String,
+        style: SHNavigationTitleStyle = .inline,
+        @ToolbarContentBuilder toolbar: () -> Content
+    ) -> some View {
+        shTitle(title, style: style)
+            .toolbar(content: toolbar)
+    }
+
     /// 타이틀만. 툴바 항목을 만들지 않으므로 뒤로 가기 버튼 자리를 건드리지 않는다.
     func shNavigationBar(
         _ title: String,
